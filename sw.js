@@ -1,4 +1,4 @@
-const CACHE_NAME = 'scirun5k-v0-3';
+const CACHE_NAME = 'scirun5k-v0-4';
 const ASSETS = [
   './',
   './index.html',
@@ -6,7 +6,9 @@ const ASSETS = [
   './icon.svg',
   './icon-192.png',
   './icon-512.png',
-  './timer-core.js'
+  './timer-core.js',
+  './dashboard-metrics.js',
+  './app.css'
 ];
 self.addEventListener('install', event => {
   event.waitUntil(
