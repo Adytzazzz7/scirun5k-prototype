@@ -75,3 +75,38 @@ test('PWA manifest and precache refer to existing root-level icons and timer cod
   assert.equal(worker.includes('./icons/'), false);
 });
 
+test('dashboard plan completion counts complete sessions only, not algorithm stages or partial sessions', () => {
+  const dashboardContext = {};
+  vm.createContext(dashboardContext);
+  vm.runInContext(fs.readFileSync(path.join(root, 'dashboard-metrics.js'), 'utf8'), dashboardContext);
+  const progress = dashboardContext.SciRunDashboardMetrics.planProgress([
+    { status: 'done' }, { status: 'partial' }, { status: 'done' },
+  ], 3);
+  assert.deepEqual({ ...progress }, { done: 2, total: 36, percent: 6 });
+});
+
+test('dashboard streak stops at partial sessions and confirmed capacity requires a complete continuous session', () => {
+  const dashboardContext = {};
+  vm.createContext(dashboardContext);
+  vm.runInContext(fs.readFileSync(path.join(root, 'dashboard-metrics.js'), 'utf8'), dashboardContext);
+  const metrics = dashboardContext.SciRunDashboardMetrics;
+  const history = [
+    { status: 'done', completion: 1, level: 0 },
+    { status: 'partial', completion: 0.75, level: 2 },
+    { status: 'done', completion: 1, level: 2 },
+    { status: 'done', completion: 1, level: 3 },
+  ];
+  const stages = [
+    { type: 'interval', run: 900 }, { type: 'continuous', run: 1200 },
+    { type: 'interval', run: 1000 }, { type: 'continuous', run: 1800 },
+  ];
+  assert.equal(metrics.trainingStreak(history), 2);
+  assert.deepEqual({ ...metrics.confirmedCapacity(history, stages, false) }, {
+    value: '30 min', minutes: 30, source: 'completed-session',
+  });
+  assert.equal(metrics.confirmedCapacity(history.slice(0, 3), stages, false), null);
+  assert.deepEqual({ ...metrics.confirmedCapacity([], stages, true) }, {
+    value: '5 km', minutes: null, source: 'manual-goal',
+  });
+});
+
