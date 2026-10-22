@@ -33,9 +33,10 @@ body.workout-active{padding:0;min-height:100svh;background:var(--paper)}body.wor
 .ratio-choice{border:1px solid var(--line);background:var(--surface);color:var(--text);border-radius:11px;padding:10px 14px;font-weight:800}.ratio-choice.selected{background:var(--electric);color:#fff;border-color:var(--electric)}.effort-choice{background:var(--surface);border:1px solid var(--line);color:var(--text);border-radius:14px;padding:12px;text-align:left;font-weight:800}.effort-choice small{display:block;margin-top:4px;color:var(--muted);font-weight:500}.effort-choice.selected{border:2px solid var(--electric);padding:11px;box-shadow:0 0 0 3px rgba(36,92,255,.12)}
 .workout-feedback-actions{display:grid;gap:8px;justify-items:start;margin-top:18px}.workout-feedback-actions .btn{min-height:54px}#feedbackError{color:#c13545}:root[data-theme="dark"] #feedbackError{color:#ff909d}@media(prefers-color-scheme:dark){:root:not([data-theme="light"]) #feedbackError{color:#ff909d}}
 @media(max-width:700px){body.workout-active{padding-bottom:0}.workout-page{width:100%;padding-left:16px;padding-right:16px}.workout-ring{width:min(42vh,250px);max-width:min(68vw,250px)}}
-@media(max-width:360px){.workout-page{gap:11px;padding-left:12px;padding-right:12px}.workout-top{gap:7px}.glass-control{min-height:42px;padding:8px 9px;font-size:.75rem}.workout-ring{width:min(38vh,218px);max-width:67vw;padding:9px}.workout-current{font-size:.63rem}.workout-controls{gap:8px}.workout-controls .btn{min-height:54px;padding:10px 7px;font-size:.82rem}}
+@media(max-width:360px){.workout-page{gap:11px;padding-left:12px;padding-right:18px}.workout-top{gap:7px}.glass-control{min-height:42px;padding:8px 9px;font-size:.75rem}.workout-ring{width:min(38vh,218px);max-width:67vw;padding:9px}.workout-current{font-size:.63rem}.workout-controls{gap:8px}.workout-controls .btn{min-height:54px;padding:10px 7px;font-size:.82rem}}
 @media(max-height:700px) and (min-width:701px){.workout-page{gap:10px}.workout-ring{width:min(32vh,220px)}.workout-content{gap:10px}}
 @property --timer-progress{syntax:"<percentage>";inherits:false;initial-value:0%}
 
 
 .brand{text-decoration:none}.workout-round-label span{min-width:0}.workout-round-label strong{flex:0 0 auto;white-space:nowrap}@media(max-width:360px){.workout-round-label{gap:6px;font-size:.76rem}}
+
