@@ -37,3 +37,5 @@ body.workout-active{padding:0;min-height:100svh;background:var(--paper)}body.wor
 @media(max-height:700px) and (min-width:701px){.workout-page{gap:10px}.workout-ring{width:min(32vh,220px)}.workout-content{gap:10px}}
 @property --timer-progress{syntax:"<percentage>";inherits:false;initial-value:0%}
 
+
+.brand{text-decoration:none}.workout-round-label span{min-width:0}.workout-round-label strong{flex:0 0 auto;white-space:nowrap}@media(max-width:360px){.workout-round-label{gap:6px;font-size:.76rem}}
