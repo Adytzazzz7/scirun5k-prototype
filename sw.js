@@ -1,4 +1,4 @@
-const CACHE_NAME = 'scirun5k-v0-4';
+const CACHE_NAME = 'scirun5k-v0-5';
 const ASSETS = [
   './',
   './index.html',
@@ -8,6 +8,8 @@ const ASSETS = [
   './icon-512.png',
   './timer-core.js',
   './dashboard-metrics.js',
+  './workout-view.js',
+  './liquid-glass.css',
   './app.css'
 ];
 self.addEventListener('install', event => {
@@ -39,4 +41,6 @@ self.addEventListener('fetch', event => {
     })
   );
 });
+
+
 

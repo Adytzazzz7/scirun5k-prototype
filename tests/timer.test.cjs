@@ -68,12 +68,12 @@ test('PWA manifest and precache refer to existing root-level icons and timer cod
     assert.equal(fs.existsSync(path.join(root, icon.src.replace(/^\.\//, ''))), true, icon.src);
   }
   const worker = fs.readFileSync(path.join(root, 'sw.js'), 'utf8');
-  for (const asset of ['./icon-192.png', './icon-512.png', './timer-core.js', './dashboard-metrics.js', './app.css']) {
+  for (const asset of ['./icon-192.png', './icon-512.png', './timer-core.js', './dashboard-metrics.js', './workout-view.js', './liquid-glass.css', './app.css']) {
     assert.ok(worker.includes(asset), `${asset} is precached`);
     assert.equal(fs.existsSync(path.join(root, asset.slice(2))), true, asset);
   }
   assert.equal(worker.includes('./icons/'), false);
-  assert.equal(manifest.theme_color, '#071522');
+  assert.equal(manifest.theme_color, '#000000');
 });
 
 test('dashboard plan completion counts complete sessions only, not algorithm stages or partial sessions', () => {
@@ -110,4 +110,27 @@ test('dashboard streak stops at partial sessions and confirmed capacity requires
     value: '5 km', minutes: null, source: 'manual-goal',
   });
 });
+
+
+test('workout timer is a dedicated view with distinct pause, finish, abandon, and feedback flows', () => {
+  const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  const view = fs.readFileSync(path.join(root, 'workout-view.js'), 'utf8');
+  const styles = fs.readFileSync(path.join(root, 'liquid-glass.css'), 'utf8');
+  assert.match(html, /<section id="workout" class="view workout-view"/);
+  assert.match(html, /<script src="workout-view.js"><\/script>/);
+  assert.doesNotMatch(html, /renderTimerModal|closeTimer/);
+  for (const control of ['workoutPause', 'workoutSound', 'workoutFinish', 'workoutAbandon']) assert.ok(view.includes(control), control);
+  assert.ok(view.includes('workoutRing'));
+  assert.ok(view.includes('nextInterval'));
+  assert.match(view, /renderWorkoutFeedbackPage/);
+  assert.match(view, /feedback-discard-confirm/);
+  assert.match(styles, /body\.workout-active \.topbar/);
+  assert.match(styles, /\.workout-page[\s\S]*min-height:100svh/);
+});
+test('all inline application scripts parse as JavaScript', () => {
+  const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  for (const match of html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/gi)) if (match[1].trim()) new vm.Script(match[1]);
+});
+
+
 
