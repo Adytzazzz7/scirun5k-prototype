@@ -1,8 +1,8 @@
-const CACHE_NAME = 'scirun5k-v0-6';
+const CACHE_NAME = 'scirun5k-v0-7';
 const ASSETS = [
   './',
   './index.html',
-  './manifest.webmanifest',
+  './manifest.json',
   './icon.svg',
   './icon-192.png',
   './icon-512.png',
