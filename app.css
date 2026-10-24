@@ -108,23 +108,33 @@ button:focus-visible, input:focus-visible, select:focus-visible, [tabindex]:focu
 }
 .brand-sci { color: var(--text); }
 .brand-run { color: #e87531; }
+.brand-suffix { margin-left: 3px; color: var(--text); font-size: .78em; letter-spacing: -.04em; }
 :root[data-theme="dark"] .brand-sci { color: #fff; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .brand-sci { color: #fff; } }
 .nav { grid-column: 1; grid-row: 1; justify-self: start; margin: 0; gap: 3px; }
+.nav[hidden] { display: none !important; }
 .nav button {
-  padding: 9px 12px;
+  display: grid;
+  place-items: center;
+  width: 46px;
+  min-width: 44px;
+  height: 46px;
+  padding: 0;
   border: 1px solid transparent;
   border-radius: 13px;
   background: transparent;
   color: var(--muted);
-  font-size: .86rem;
   font-weight: 750;
 }
+.nav-icon { display: block; width: 22px; height: 22px; }
+.sr-only { position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 .nav button.active, .nav button:hover {
   border-color: var(--line);
   background: var(--surface);
-  color: var(--text);
+  color: var(--electric);
 }
+:root[data-theme="dark"] .nav button.active, :root[data-theme="dark"] .nav button:hover { color: var(--cyan); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .nav button.active, :root:not([data-theme="light"]) .nav button:hover { color: var(--cyan); } }
 .header-controls {
   grid-column: 3;
   grid-row: 1;
@@ -301,16 +311,14 @@ main { padding-top: clamp(24px, 4vw, 42px); padding-bottom: 60px; }
   *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
 }
 
-/* Stage 2 dashboard and navigation */
+/* Compact dashboard, icon navigation and primary next workout. */
 .top-actions { grid-column: 3; grid-row: 1; justify-self: end; display: flex; align-items: center; gap: 9px; }
 .theme-toggle { border: 1px solid var(--line); background: var(--surface); }
-.dashboard-hero { padding: clamp(20px, 2.4vw, 28px); }
-.dashboard-hero h1 { max-width: 28ch; font-size: clamp(1.75rem, 3.2vw, 2.55rem); }
-.dashboard-hero p { max-width: 58ch; margin-bottom: 16px; }
-.dashboard-grid { display: grid; grid-template-columns: minmax(250px, .78fr) minmax(0, 1.22fr); gap: 18px; align-items: stretch; }
-.dashboard-main { display: grid; gap: 18px; min-width: 0; }
+.dashboard-grid { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(250px, .75fr); grid-template-areas: "next completion" "next capacity" "stats stats"; gap: 18px; align-items: stretch; }
 .completion-card { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; min-width: 0; }
+.completion-card { grid-area: completion; }
 .completion-card .eyebrow { align-self: flex-start; }
+.capacity-card { grid-area: capacity; }
 .completion-ring { --progress: 0%; width: clamp(175px, 23vw, 245px); aspect-ratio: 1; display: grid; place-items: center; margin: 22px auto 16px; border-radius: 50%; background: conic-gradient(var(--orange) var(--progress), rgba(110, 153, 181, .2) 0); box-shadow: 0 12px 32px rgba(255, 143, 77, .12); }
 .completion-ring > div { width: calc(100% - 20px); height: calc(100% - 20px); border: 1px solid var(--line); border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; background: var(--surface-strong); }
 .completion-ring strong { font-size: clamp(2.5rem, 5vw, 3.5rem); letter-spacing: -.06em; line-height: 1; font-variant-numeric: tabular-nums; }
@@ -321,13 +329,16 @@ main { padding-top: clamp(24px, 4vw, 42px); padding-bottom: 60px; }
 .capacity-card h2 { margin: 9px 0 4px; font-size: clamp(1.7rem, 4vw, 2.4rem); letter-spacing: -.05em; }
 .capacity-card p { margin: 0 0 12px; font-size: .84rem; }
 .capacity-icon { flex: 0 0 auto; display: grid; place-items: center; width: 52px; height: 52px; border-radius: 18px; color: var(--navy); background: var(--sky2); font-size: 1.6rem; }
-.next-card h2 { margin: 7px 0 3px; font-size: 1.4rem; }
+.next-card { grid-area: next; align-self: stretch; border-color: rgba(36, 92, 255, .28); box-shadow: var(--shadow), inset 0 1px rgba(255, 255, 255, .12); }
+.next-card h2 { margin: 7px 0 3px; font-size: clamp(1.45rem, 2.4vw, 1.85rem); }
 .next-card .cardhead { align-items: flex-start; }
 .workout-summary { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: baseline; margin: 16px 0 10px; }
 .workout-summary strong { font-size: 1.18rem; }
 .workout-summary span { color: var(--muted); font-size: .85rem; }
-.next-card .pillrow { margin: 0 0 14px; }
+.next-card .pillrow { margin: 0 0 18px; }
+.next-card .btn { width: 100%; min-height: 54px; }
 .small-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.small-stats { grid-area: stats; }
 .small-stats .card { min-width: 0; }
 .small-stats strong { display: block; margin: 9px 0; font-size: 1.55rem; font-variant-numeric: tabular-nums; }
 .small-stats p { margin: 8px 0 0; font-size: .8rem; }
@@ -335,11 +346,12 @@ main { padding-top: clamp(24px, 4vw, 42px); padding-bottom: 60px; }
 .progress-summary .card { min-width: 0; }
 .progress-summary h2 { margin: 10px 0; }
 .miniBtn { border: 1px solid var(--line); border-radius: 11px; padding: 8px 10px; background: var(--surface-soft); color: var(--text); font-weight: 750; }
-@media (max-width: 920px) and (min-width: 701px) { .dashboard-grid { grid-template-columns: minmax(220px, .75fr) minmax(0, 1.25fr); } .small-stats { gap: 12px; } }
+@media (max-width: 920px) and (min-width: 701px) { .dashboard-grid { grid-template-columns: minmax(0, 1.2fr) minmax(230px, .8fr); } .small-stats { gap: 12px; } }
 @media (max-width: 700px) {
  .topinner { position: relative; }
  .top-actions { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); gap: 5px; }
- .dashboard-grid { grid-template-columns: minmax(0, 1fr); }
+ .nav button { width: auto; height: 48px; flex: 1 1 0; }
+ .dashboard-grid { grid-template-columns: minmax(0, 1fr); grid-template-areas: "next" "completion" "capacity" "stats"; gap: 14px; }
  .completion-ring { width: clamp(170px, 56vw, 220px); }
  .progress-summary { grid-template-columns: 1fr; }
  .small-stats { gap: 10px; }
@@ -357,5 +369,4 @@ main { padding-top: clamp(24px, 4vw, 42px); padding-bottom: 60px; }
  .next-card .cardhead { display: block; }
  .next-card .tag { display: inline-block; margin-top: 10px; }
 }
-
 
