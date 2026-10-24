@@ -76,15 +76,15 @@ test('skipping a partly completed run credits time already spent and keeps activ
   assert.deepEqual({ ...skipped }, { changed: true, complete: false, skipped: true, elapsedSeconds: 30 });
   assert.equal(timer.index, 1);
   assert.equal(timer.elapsed, 30);
-  assert.equal(core.runCompletion(timer, 30_000), 0.25);
+  assert.equal(core.runCompletion(timer, 30_000), 0.5);
 
   core.advanceTimer(timer, 65_000);
   assert.equal(timer.index, 2);
   assert.equal(timer.elapsed, 60);
-  assert.equal(core.runCompletion(timer, 65_000), 35 / 120);
+  assert.equal(core.runCompletion(timer, 65_000), 65 / 120);
 });
 
-test('skipping the final cooldown ends the timer without crediting its unspent time', () => {
+test('skipping the final cooldown ends the timer without crediting its unspent active time', () => {
   const timer = {
     segments: [{ type: 'run', seconds: 60 }, { type: 'cooldown', seconds: 60 }],
     index: 1,
@@ -96,11 +96,58 @@ test('skipping the final cooldown ends the timer without crediting its unspent t
   const skipped = core.skipSegment(timer, 90_000);
   assert.deepEqual({ ...skipped }, { changed: true, complete: true, skipped: true, elapsedSeconds: 30 });
   assert.equal(timer.skippedSegments, 1);
-  assert.equal(timer.index, 1);
-  assert.equal(timer.remaining, 30);
+  assert.equal(timer.index, 2);
+  assert.equal(timer.remaining, 0);
+  assert.equal(timer.elapsed, 90);
+  assert.equal(core.advanceTimer(timer, 90_000).complete, true);
+  assert.equal(core.runCompletion(timer, 90_000), 1);
+
+  const paused = {
+    segments: [{ type: 'run', seconds: 60 }, { type: 'cooldown', seconds: 60 }],
+    index: 1,
+    segmentEnd: 120_000,
+    remaining: 30,
+    elapsed: 60,
+    paused: true,
+  };
+  assert.equal(core.skipSegment(paused, 90_000).complete, true);
+  assert.equal(core.advanceTimer(paused, 90_000).complete, true);
 });
 
-test('requires both a natural timer finish and full feedback for a complete session', () => {
+test('skipping all intervals completes timer progress, while final self-report controls session status', () => {
+  const timer = {
+    segments: [
+      { type: 'run', seconds: 60 },
+      { type: 'walk', seconds: 30 },
+      { type: 'run', seconds: 60 },
+      { type: 'cooldown', seconds: 10 },
+    ],
+    index: 0,
+    segmentEnd: 60_000,
+    remaining: 60,
+    elapsed: 0,
+    paused: false,
+  };
+
+  core.skipSegment(timer, 0);
+  core.skipSegment(timer, 0);
+  core.skipSegment(timer, 0);
+  const final = core.skipSegment(timer, 0);
+
+  assert.equal(final.complete, true);
+  assert.equal(core.runCompletion(timer, 0), 1);
+  assert.equal(timer.elapsed, 0);
+  assert.equal(core.isFullSession(true, 1), true);
+  assert.equal(core.isFullSession(true, 0.75), false);
+  assert.equal(core.isFullSession(true, 0.5), false);
+
+  const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  assert.match(html, /completedNaturally:!interrupted&&progress\.complete/);
+  assert.match(html, /isFullSession\(pendingSession\.completedNaturally,ratio\)/);
+  assert.match(html, /status:completedFully\?'done':'partial'/);
+});
+
+test('requires the timer to reach the final interval and full feedback for a complete session', () => {
   assert.equal(core.isFullSession(false, 1), false);
   assert.equal(core.isFullSession(true, 0.75), false);
   assert.equal(core.isFullSession(true, 1), true);
@@ -112,6 +159,7 @@ test('PWA manifest and precache refer to existing root-level icons and timer cod
     assert.equal(fs.existsSync(path.join(root, icon.src.replace(/^\.\//, ''))), true, icon.src);
   }
   const worker = fs.readFileSync(path.join(root, 'sw.js'), 'utf8');
+  assert.match(worker, /scirun5k-v0-8/);
   for (const asset of ['./icon-192.png', './icon-512.png', './timer-core.js', './pending-session-store.js', './dashboard-metrics.js', './workout-view.js', './liquid-glass.css', './app.css']) {
     assert.ok(worker.includes(asset), `${asset} is precached`);
     assert.equal(fs.existsSync(path.join(root, asset.slice(2))), true, asset);
