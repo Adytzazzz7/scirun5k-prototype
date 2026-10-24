@@ -107,7 +107,7 @@ test('requires both a natural timer finish and full feedback for a complete sess
 });
 
 test('PWA manifest and precache refer to existing root-level icons and timer code', () => {
-  const manifest = JSON.parse(fs.readFileSync(path.join(root, 'manifest.webmanifest'), 'utf8'));
+  const manifest = JSON.parse(fs.readFileSync(path.join(root, 'manifest.json'), 'utf8'));
   for (const icon of manifest.icons) {
     assert.equal(fs.existsSync(path.join(root, icon.src.replace(/^\.\//, ''))), true, icon.src);
   }
