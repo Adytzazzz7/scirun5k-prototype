@@ -549,3 +549,50 @@ test('pending session store reports quota failures instead of throwing', () => {
   assert.equal(store.clear(storage), false);
   assert.equal(store.load(storage), null);
 });
+
+test('profile and manual goal changes roll back when storage refuses the write', () => {
+  const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  const saveProfile = html.match(/function saveProfile\(\)\{[^\r\n]*\}/)?.[0];
+  const openManualGoal = html.match(/function openManualGoal\(\)\{[^\r\n]*\}/)?.[0];
+  assert.ok(saveProfile);
+  assert.ok(openManualGoal);
+
+  const previousProfile = { age: '30-39' };
+  const fields = {
+    onboardError: { textContent: '' },
+    closeGoal: {},
+    cancelGoal: {},
+    confirmGoal: {},
+    goalCheck: { checked: true },
+    goalError: { textContent: '' },
+  };
+  const context = {
+    state: { profile: previousProfile, level: 4, history: [], goalReached: false },
+    readProfile: () => ({ safetyAck: true, trainingDays: [1, 3, 5], runStatus: 'known', runMinutes: 4 }),
+    selectSpacedDays: days => days,
+    dateKey: () => '2026-11-03',
+    stageForRunMinutes: () => 2,
+    saveState: () => false,
+    storageFailureText: () => 'storage-error',
+    $: id => fields[id],
+    t: key => key,
+    openModal: () => {},
+    closeModal: () => {},
+    showView: () => {},
+    renderAll: () => {},
+    toast: () => {},
+    lang: 'en',
+  };
+  vm.createContext(context);
+  vm.runInContext(saveProfile, context);
+  vm.runInContext(openManualGoal, context);
+
+  assert.equal(context.saveProfile(), false);
+  assert.equal(context.state.profile, previousProfile);
+  assert.equal(context.state.level, 4);
+  assert.equal(fields.onboardError.textContent, 'storage-error');
+
+  context.openManualGoal();
+  fields.confirmGoal.onclick();
+  assert.equal(context.state.goalReached, false);
+});
