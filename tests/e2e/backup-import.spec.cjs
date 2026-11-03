@@ -1,4 +1,5 @@
 const { expect, test } = require('@playwright/test');
+const fs = require('node:fs/promises');
 
 async function createProfile(page) {
   await page.goto('/');
@@ -133,4 +134,69 @@ test('blocks backup import while a workout is active', async ({ page }) => {
   expect(await page.evaluate(() => localStorage.getItem('scirun.state'))).toBe(originalState);
   const activeTimer = await page.evaluate(() => JSON.parse(localStorage.getItem('scirun.activeTimer')));
   expect(activeTimer).not.toBeNull();
+});
+
+
+test('restores the actual exported profile and history after reset', async ({ page }) => {
+  test.setTimeout(60_000);
+  page.setDefaultTimeout(5_000);
+  page.setDefaultNavigationTimeout(15_000);
+  await page.clock.install({ time: new Date('2026-11-03T09:00:00Z') });
+
+  const pageErrors = [];
+  page.on('pageerror', error => pageErrors.push(error.message));
+
+  await createProfile(page);
+  await page.locator('#startWorkout').click();
+  await expect(page.locator('#workout')).toHaveClass(/active/);
+  await page.clock.fastForward(60 * 60 * 1000);
+  await expect(page.locator('#saveFeedback')).toBeVisible();
+  await page.locator('#workout [data-ratio="1"]').click();
+  await page.locator('#workout [data-effort="moderate"]').click();
+  await page.locator('#saveFeedback').click();
+  await expect(page.locator('#dashboard')).toHaveClass(/active/);
+
+  const expectedState = await page.evaluate(() => JSON.parse(localStorage.getItem('scirun.state')));
+  expect(expectedState.history).toHaveLength(1);
+  expect(expectedState.history[0].status).toBe('done');
+
+  await page.locator('#nav-profile').click();
+  await expect(page.locator('#profile')).toHaveClass(/active/);
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    page.locator('#exportData').click(),
+  ]);
+  expect(download.suggestedFilename()).toBe('scirun5k-personal-data.json');
+  const downloadPath = await download.path();
+  const backupContents = await fs.readFile(downloadPath, 'utf8');
+  expect(JSON.parse(backupContents)).toEqual(expectedState);
+
+  page.once('dialog', dialog => dialog.accept());
+  await page.locator('#resetApp').click();
+  await expect(page.locator('#onboarding')).toHaveClass(/active/);
+  const cleared = await page.evaluate(() => ({
+    state: localStorage.getItem('scirun.state'),
+    timer: localStorage.getItem('scirun.activeTimer'),
+    pending: localStorage.getItem('scirun.pendingSession'),
+  }));
+  expect(cleared).toEqual({ state: null, timer: null, pending: null });
+
+  await page.locator('#nav-profile').click();
+  await expect(page.locator('#profile')).toHaveClass(/active/);
+  const chooserPromise = page.waitForEvent('filechooser');
+  await page.locator('#importBackup').click();
+  const chooser = await chooserPromise;
+  const importDialogPromise = page.waitForEvent('dialog');
+  await chooser.setFiles({
+    name: download.suggestedFilename(),
+    mimeType: 'application/json',
+    buffer: Buffer.from(backupContents, 'utf8'),
+  });
+  const importDialog = await importDialogPromise;
+  await importDialog.accept();
+
+  await expect(page.locator('#dashboard')).toHaveClass(/active/);
+  const restoredState = await page.evaluate(() => JSON.parse(localStorage.getItem('scirun.state')));
+  expect(restoredState).toEqual(expectedState);
+  expect(pageErrors).toEqual([]);
 });
