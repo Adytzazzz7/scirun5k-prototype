@@ -208,5 +208,117 @@ test('all inline application scripts parse as JavaScript', () => {
   for (const match of html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/gi)) if (match[1].trim()) new vm.Script(match[1]);
 });
 
+test('reset clears the active timer and pending session before returning to onboarding', () => {
+  const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  const storeSource = fs.readFileSync(path.join(root, 'pending-session-store.js'), 'utf8');
+  const persistTimer = html.match(/function persistTimer\(\)\{[^\r\n]*\}/)?.[0];
+  const resetApp = html.match(/function resetApp\(\){[^\r\n]*\}/)?.[0];
+  assert.ok(persistTimer);
+  assert.ok(resetApp);
 
+  const values = new Map([
+    ['scirun.activeTimer', '{"level":0}'],
+    ['scirun.pendingSession', '{"id":"pending"}'],
+    ['scirun.state', '{"profile":{"age":"30-39"}}'],
+  ]);
+  const storage = {
+    getItem: key => values.get(key) ?? null,
+    setItem: (key, value) => values.set(key, String(value)),
+    removeItem: key => values.delete(key),
+  };
+  let stopped = false;
+  let activeView = null;
+  const context = {
+    localStorage: storage,
+    TIMER_STORAGE_KEY: 'scirun.activeTimer',
+    currentTimer: { index: 0 },
+    pendingSession: { id: 'pending' },
+    confirm: () => true,
+    t: key => key,
+    stopTimerInterval: () => { stopped = true; },
+    loadState: () => ({ profile: null, level: 0, history: [] }),
+    setupForm: () => {},
+    showView: view => { activeView = view; },
+    toast: () => {},
+    lang: 'ro',
+  };
+  vm.createContext(context);
+  vm.runInContext(storeSource, context);
+  vm.runInContext(persistTimer, context);
+  vm.runInContext(resetApp, context);
+  context.resetApp();
 
+  assert.equal(stopped, true);
+  assert.equal(context.currentTimer, null);
+  assert.equal(context.pendingSession, null);
+  assert.equal(values.has('scirun.activeTimer'), false);
+  assert.equal(values.has('scirun.pendingSession'), false);
+  assert.equal(values.has('scirun.state'), false);
+  assert.equal(activeView, 'onboarding');
+});
+
+test('timer restoration discards invalid snapshots and still resumes a valid timer', () => {
+  const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  const timerSource = fs.readFileSync(path.join(root, 'timer-core.js'), 'utf8');
+  const restoreTimer = html.match(/function restoreTimer\(\){[^\r\n]*\}/)?.[0];
+  assert.ok(restoreTimer);
+
+  function runRestore(rawTimer, hasProfile = true) {
+    const values = new Map();
+    if (rawTimer !== null) values.set('scirun.activeTimer', rawTimer);
+    const notices = [];
+    let rendered = 0;
+    let intervalDelay = null;
+    const context = {
+      STAGES: Array.from({ length: 15 }, () => ({})),
+      state: { profile: hasProfile ? {} : null, history: [] },
+      TIMER_STORAGE_KEY: 'scirun.activeTimer',
+      localStorage: {
+        getItem: key => values.get(key) ?? null,
+        setItem: (key, value) => values.set(key, String(value)),
+        removeItem: key => values.delete(key),
+      },
+      toast: message => notices.push(message),
+      renderWorkoutPage: () => { rendered += 1; },
+      tickTimer: () => {},
+      setInterval: (callback, delay) => { intervalDelay = delay; return 7; },
+      lang: 'en',
+    };
+    vm.createContext(context);
+    vm.runInContext(timerSource, context);
+    vm.runInContext(restoreTimer, context);
+    context.restoreTimer();
+    return { context, values, notices, rendered: () => rendered, intervalDelay: () => intervalDelay };
+  }
+
+  for (const raw of ['{broken json', JSON.stringify({ level: 0 })]) {
+    const result = runRestore(raw);
+    assert.equal(result.values.has('scirun.activeTimer'), false);
+    assert.equal(result.context.currentTimer, null);
+    assert.equal(result.notices.length, 1);
+    assert.equal(result.rendered(), 0);
+  }
+
+  const validTimer = JSON.stringify({
+    level: 0,
+    segments: [{ type: 'run', seconds: 60 }],
+    index: 0,
+    segmentEnd: Date.now() + 60_000,
+    remaining: 60,
+    paused: false,
+    total: 60,
+    elapsed: 0,
+  });
+  const missingProfile = runRestore(validTimer, false);
+  assert.equal(missingProfile.values.has('scirun.activeTimer'), false);
+  assert.equal(missingProfile.context.currentTimer, null);
+  assert.equal(missingProfile.notices.length, 1);
+
+  const resumed = runRestore(validTimer);
+  assert.equal(resumed.values.has('scirun.activeTimer'), true);
+  assert.equal(resumed.context.currentTimer.level, 0);
+  assert.equal(resumed.context.workoutMode, 'timer');
+  assert.equal(resumed.rendered(), 1);
+  assert.equal(resumed.intervalDelay(), 250);
+  assert.equal(resumed.notices.length, 0);
+});
