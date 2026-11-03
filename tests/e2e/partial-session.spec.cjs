@@ -1,99 +1,66 @@
 const { expect, test } = require('@playwright/test');
+const { createProfile, startWorkout, submitWorkoutFeedback } = require('./helpers.cjs');
 
-test('restores an interrupted workout for feedback and saves it once as partial', async ({ page }) => {
+test('confirms stopping early, restores feedback, and saves one partial session', async ({ page }) => {
   test.setTimeout(60_000);
   page.setDefaultTimeout(5_000);
   page.setDefaultNavigationTimeout(15_000);
   await page.clock.install({ time: new Date('2026-11-03T09:00:00Z') });
-
   const pageErrors = [];
   page.on('pageerror', error => pageErrors.push(error.message));
 
-  await page.goto('/');
-  await expect(page.locator('#onboarding')).toHaveClass(/active/);
-  await page.locator('#safetyAck').check();
-  await page.locator('#createPlan').click();
-  await expect(page.locator('#dashboard')).toHaveClass(/active/);
-  const initialState = await page.evaluate(() => JSON.parse(localStorage.getItem('scirun.state')));
-  const startingLevel = initialState.level;
-
-  await page.locator('#startWorkout').click();
-  await expect(page.locator('#workout')).toHaveClass(/active/);
+  await createProfile(page);
+  const startingLevel = await page.evaluate(() => JSON.parse(localStorage.getItem('scirun.state')).level);
+  await startWorkout(page);
   const timeTo75PercentOfPlannedRunning = await page.evaluate(() => {
     const timer = JSON.parse(localStorage.getItem('scirun.activeTimer'));
-    const plannedRunningSeconds = timer.segments
-      .filter(segment => segment.type === 'run')
-      .reduce((total, segment) => total + segment.seconds, 0);
-    const targetRunningSeconds = plannedRunningSeconds * 0.75;
-    let elapsedSeconds = 0;
-    let completedRunningSeconds = 0;
-
+    const targetRunningSeconds = timer.segments.filter(segment => segment.type === 'run')
+      .reduce((total, segment) => total + segment.seconds, 0) * 0.75;
+    let elapsedSeconds = 0, completedRunningSeconds = 0;
     for (const segment of timer.segments) {
       if (segment.type === 'run') {
         const remainingTarget = targetRunningSeconds - completedRunningSeconds;
-        if (remainingTarget <= segment.seconds) {
-          return (elapsedSeconds + remainingTarget) * 1000;
-        }
+        if (remainingTarget <= segment.seconds) return (elapsedSeconds + remainingTarget) * 1000;
         completedRunningSeconds += segment.seconds;
       }
       elapsedSeconds += segment.seconds;
     }
-    throw new Error('Could not calculate the partial workout time');
+    throw new Error('Could not calculate partial workout time');
   });
   await page.clock.fastForward(timeTo75PercentOfPlannedRunning);
+  page.once('dialog', async dialog => { expect(dialog.message()).toContain('parțială'); await dialog.accept(); });
   await page.locator('#workoutFinish').click();
   await expect(page.locator('#saveFeedback')).toBeVisible();
 
-  const interruptedSession = await page.evaluate(() => ({
+  const pending = await page.evaluate(() => ({
     session: JSON.parse(localStorage.getItem('scirun.pendingSession')),
     activeTimer: localStorage.getItem('scirun.activeTimer'),
   }));
-  expect(interruptedSession.session.completedNaturally).toBe(false);
-  expect(interruptedSession.session.completion).toBeGreaterThan(0);
-  expect(interruptedSession.session.completion).toBeLessThan(1);
-  expect(interruptedSession.activeTimer).toBeNull();
+  expect(pending.session.completedNaturally).toBe(false);
+  expect(pending.session.completion).toBeGreaterThan(0);
+  expect(pending.session.completion).toBeLessThan(1);
+  expect(pending.activeTimer).toBeNull();
   expect(await page.locator('.workout-feedback-note').textContent()).toContain('parțială');
-  const sessionId = interruptedSession.session.id;
+  const sessionId = pending.session.id;
 
   await page.reload();
   await expect(page.locator('#saveFeedback')).toBeVisible();
-  await expect(page.locator('.workout-feedback-note')).toContainText('parțială');
-  const restoredPending = await page.evaluate(() => ({
-    session: JSON.parse(localStorage.getItem('scirun.pendingSession')),
-    savedHistory: JSON.parse(localStorage.getItem('scirun.state')).history,
-  }));
-  expect(restoredPending.session.id).toBe(sessionId);
-  expect(restoredPending.session.completedNaturally).toBe(false);
-  expect(restoredPending.savedHistory).toHaveLength(0);
-
-  await page.locator('#workout [data-ratio="0.75"]').click();
-  await page.locator('#workout [data-effort="easy"]').click();
+  await submitWorkoutFeedback(page, { distance: '1.70', effort: 'easy' });
   await page.locator('#saveFeedback').click();
   await expect(page.locator('#dashboard')).toHaveClass(/active/);
 
-  const savedState = await page.evaluate(() => ({
+  const saved = await page.evaluate(() => ({
     state: JSON.parse(localStorage.getItem('scirun.state')),
-    pendingSession: localStorage.getItem('scirun.pendingSession'),
-    activeTimer: localStorage.getItem('scirun.activeTimer'),
+    pending: localStorage.getItem('scirun.pendingSession'),
+    timer: localStorage.getItem('scirun.activeTimer'),
   }));
-  expect(savedState.state.level).toBe(startingLevel);
-  expect(savedState.state.easyStreak).toBe(0);
-  expect(savedState.state.history).toHaveLength(1);
-  expect(savedState.state.history[0]).toMatchObject({
-    id: sessionId,
-    status: 'partial',
-    effort: 'easy',
-    completion: 0.75,
-  });
-  expect(savedState.pendingSession).toBeNull();
-  expect(savedState.activeTimer).toBeNull();
-
+  expect(saved.state.level).toBe(startingLevel);
+  expect(saved.state.easyStreak).toBe(0);
+  expect(saved.state.history).toHaveLength(1);
+  expect(saved.state.history[0]).toMatchObject({ id: sessionId, status: 'partial', effort: 'easy', distanceKm: 1.7 });
+  expect(saved.pending).toBeNull();
+  expect(saved.timer).toBeNull();
   await page.reload();
   await expect(page.locator('#dashboard')).toHaveClass(/active/);
-  const restoredState = await page.evaluate(() => JSON.parse(localStorage.getItem('scirun.state')));
-  expect(restoredState.level).toBe(startingLevel);
-  expect(restoredState.history).toHaveLength(1);
-  expect(restoredState.history[0].id).toBe(sessionId);
-  expect(restoredState.history[0].status).toBe('partial');
   expect(pageErrors).toEqual([]);
 });

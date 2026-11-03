@@ -1,13 +1,6 @@
 const { expect, test } = require('@playwright/test');
 const fs = require('node:fs/promises');
-
-async function createProfile(page) {
-  await page.goto('/');
-  await expect(page.locator('#onboarding')).toHaveClass(/active/);
-  await page.locator('#safetyAck').check();
-  await page.locator('#createPlan').click();
-  await expect(page.locator('#dashboard')).toHaveClass(/active/);
-}
+const { createProfile, startWorkout, submitWorkoutFeedback } = require('./helpers.cjs');
 
 async function selectBackup(page, contents, name = 'backup.json') {
   const fileChooserPromise = page.waitForEvent('filechooser');
@@ -29,8 +22,8 @@ test('rejects invalid backups and restores a valid backup after confirmation', a
   page.on('pageerror', error => pageErrors.push(error.message));
 
   await createProfile(page);
-  await page.locator('#nav-profile').click();
-  await expect(page.locator('#profile')).toHaveClass(/active/);
+  await page.locator('#nav-settings').click();
+  await expect(page.locator('#settings')).toHaveClass(/active/);
   const originalState = await page.evaluate(() => localStorage.getItem('scirun.state'));
 
   await selectBackup(page, '{broken json', 'invalid.json');
@@ -40,7 +33,8 @@ test('rejects invalid backups and restores a valid backup after confirmation', a
   const backup = await page.evaluate(() => {
     const state = JSON.parse(localStorage.getItem('scirun.state'));
     state.level = Math.min(state.level + 1, 14);
-    state.profile.steps = 9876;
+    state.profile.runSpeed = 7.5;
+    state.profile.walkSpeed = 4.7;
     state.goalReached = true;
     state.history = [{
       id: 555,
@@ -67,7 +61,8 @@ test('rejects invalid backups and restores a valid backup after confirmation', a
   await expect(page.locator('#dashboard')).toHaveClass(/active/);
   await expect(page.locator('#importError')).toHaveText('');
   const restored = await page.evaluate(() => JSON.parse(localStorage.getItem('scirun.state')));
-  expect(restored.profile.steps).toBe(9876);
+  expect(restored.profile.runSpeed).toBe(7.5);
+  expect(restored.profile.walkSpeed).toBe(4.7);
   expect(restored.level).toBe(expected.level);
   expect(restored.goalReached).toBe(true);
   expect(restored.history).toHaveLength(1);
@@ -76,7 +71,7 @@ test('rejects invalid backups and restores a valid backup after confirmation', a
   await page.reload();
   await expect(page.locator('#dashboard')).toHaveClass(/active/);
   const afterReload = await page.evaluate(() => JSON.parse(localStorage.getItem('scirun.state')));
-  expect(afterReload.profile.steps).toBe(9876);
+  expect(afterReload.profile.runSpeed).toBe(7.5);
   expect(afterReload.history[0].id).toBe(555);
   expect(pageErrors).toEqual([]);
 });
@@ -87,7 +82,7 @@ test('does not overwrite existing data when backup storage fails', async ({ page
   page.setDefaultNavigationTimeout(15_000);
 
   await createProfile(page);
-  await page.locator('#nav-profile').click();
+  await page.locator('#nav-settings').click();
   const originalState = await page.evaluate(() => localStorage.getItem('scirun.state'));
   await page.evaluate(() => {
     const originalSetItem = Storage.prototype.setItem;
@@ -99,7 +94,7 @@ test('does not overwrite existing data when backup storage fails', async ({ page
 
   const backup = await page.evaluate(() => {
     const state = JSON.parse(localStorage.getItem('scirun.state'));
-    state.profile.steps = 4321;
+    state.profile.runSpeed = 8.4;
     return JSON.stringify(state);
   });
   const dialogPromise = page.waitForEvent('dialog');
@@ -112,7 +107,7 @@ test('does not overwrite existing data when backup storage fails', async ({ page
   await page.reload();
   await expect(page.locator('#dashboard')).toHaveClass(/active/);
   const persisted = await page.evaluate(() => JSON.parse(localStorage.getItem('scirun.state')));
-  expect(persisted.profile.steps).not.toBe(4321);
+  expect(persisted.profile.runSpeed).not.toBe(8.4);
 });
 
 test('blocks backup import while a workout is active', async ({ page }) => {
@@ -121,13 +116,13 @@ test('blocks backup import while a workout is active', async ({ page }) => {
   page.setDefaultNavigationTimeout(15_000);
 
   await createProfile(page);
-  await page.locator('#startWorkout').click();
+  await startWorkout(page);
   await expect(page.locator('#workout')).toHaveClass(/active/);
   const originalState = await page.evaluate(() => localStorage.getItem('scirun.state'));
   await page.locator('#workoutBack').click();
   await expect(page.locator('#dashboard')).toHaveClass(/active/);
-  await page.locator('#nav-profile').click();
-  await expect(page.locator('#profile')).toHaveClass(/active/);
+  await page.locator('#nav-settings').click();
+  await expect(page.locator('#settings')).toHaveClass(/active/);
 
   await selectBackup(page, '{not a backup}', 'ignored.json');
   await expect(page.locator('#importError')).toContainText('Încheie sau abandonează');
@@ -147,12 +142,11 @@ test('restores the actual exported profile and history after reset', async ({ pa
   page.on('pageerror', error => pageErrors.push(error.message));
 
   await createProfile(page);
-  await page.locator('#startWorkout').click();
+  await startWorkout(page);
   await expect(page.locator('#workout')).toHaveClass(/active/);
   await page.clock.fastForward(60 * 60 * 1000);
   await expect(page.locator('#saveFeedback')).toBeVisible();
-  await page.locator('#workout [data-ratio="1"]').click();
-  await page.locator('#workout [data-effort="moderate"]').click();
+  await submitWorkoutFeedback(page, { distance: '2.40', effort: 'moderate' });
   await page.locator('#saveFeedback').click();
   await expect(page.locator('#dashboard')).toHaveClass(/active/);
 
@@ -160,8 +154,8 @@ test('restores the actual exported profile and history after reset', async ({ pa
   expect(expectedState.history).toHaveLength(1);
   expect(expectedState.history[0].status).toBe('done');
 
-  await page.locator('#nav-profile').click();
-  await expect(page.locator('#profile')).toHaveClass(/active/);
+  await page.locator('#nav-settings').click();
+  await expect(page.locator('#settings')).toHaveClass(/active/);
   const [download] = await Promise.all([
     page.waitForEvent('download'),
     page.locator('#exportData').click(),
@@ -181,10 +175,8 @@ test('restores the actual exported profile and history after reset', async ({ pa
   }));
   expect(cleared).toEqual({ state: null, timer: null, pending: null });
 
-  await page.locator('#nav-profile').click();
-  await expect(page.locator('#profile')).toHaveClass(/active/);
   const chooserPromise = page.waitForEvent('filechooser');
-  await page.locator('#importBackup').click();
+  await page.locator('#restoreSetupBackup').click();
   const chooser = await chooserPromise;
   const importDialogPromise = page.waitForEvent('dialog');
   await chooser.setFiles({

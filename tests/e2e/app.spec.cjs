@@ -1,50 +1,44 @@
 const { expect, test } = require('@playwright/test');
+const { createProfile, startWorkout } = require('./helpers.cjs');
 
-test('creates a profile, restores a paused workout, and resets local data', async ({ page }) => {
+test('creates a treadmill profile, restores a paused workout, and resets local data', async ({ page }) => {
   test.setTimeout(60_000);
   page.setDefaultTimeout(5_000);
   page.setDefaultNavigationTimeout(15_000);
+  await page.clock.install({ time: new Date('2026-11-03T09:00:00Z') });
   const pageErrors = [];
   page.on('pageerror', error => pageErrors.push(error.message));
 
-  await page.goto('/');
-  console.log('E2E checkpoint: app loaded');
-  await expect(page.locator('#onboarding')).toHaveClass(/active/);
-
-  await page.locator('#safetyAck').check();
-  await page.locator('#createPlan').click();
-  await expect(page.locator('#dashboard')).toHaveClass(/active/);
+  await createProfile(page);
   const savedState = await page.evaluate(() => JSON.parse(localStorage.getItem('scirun.state')));
-  expect(savedState.profile.safetyAck).toBe(true);
-  console.log('E2E checkpoint: profile saved');
+  expect(savedState.profile.safetyAnswer).toBe('no');
+  expect(savedState.profile.sessionsPerWeek).toBe(3);
+  expect(savedState.profile.age).toBeUndefined();
+  expect(savedState.profile.sex).toBeUndefined();
 
-  await page.locator('#startWorkout').click();
-  await expect(page.locator('#workout')).toHaveClass(/active/);
-  console.log('E2E checkpoint: workout started');
+  await startWorkout(page);
   const pauseButton = page.locator('#workoutPause');
   await expect(pauseButton).toContainText('Pauză');
   await pauseButton.click();
   await expect(pauseButton).toContainText('Continuă');
-
   const pausedTimer = await page.evaluate(() => JSON.parse(localStorage.getItem('scirun.activeTimer')));
   expect(pausedTimer.paused).toBe(true);
-  console.log('E2E checkpoint: timer paused and persisted');
+
   await page.reload();
   await expect(page.locator('#workout')).toHaveClass(/active/);
   await expect(page.locator('#workoutPause')).toContainText('Continuă');
-  console.log('E2E checkpoint: paused workout restored after reload');
-
   await page.locator('#workoutPause').click();
   await expect(page.locator('#workoutPause')).toContainText('Pauză');
   const resumedTimer = await page.evaluate(() => JSON.parse(localStorage.getItem('scirun.activeTimer')));
   expect(resumedTimer.paused).toBe(false);
-  console.log('E2E checkpoint: workout resumed');
+  const displayedBefore = await page.locator('#timerBig').textContent();
+  await page.clock.fastForward(2_000);
+  await expect(page.locator('#timerBig')).not.toHaveText(displayedBefore);
 
   await page.locator('#workoutBack').click();
   await expect(page.locator('#dashboard')).toHaveClass(/active/);
-  await page.locator('#nav-profile').click();
-  await expect(page.locator('#profile')).toHaveClass(/active/);
-  console.log('E2E checkpoint: profile view opened');
+  await page.locator('#nav-settings').click();
+  await expect(page.locator('#settings')).toHaveClass(/active/);
   page.once('dialog', dialog => dialog.accept());
   await page.locator('#resetApp').click();
   await expect(page.locator('#onboarding')).toHaveClass(/active/);
@@ -55,6 +49,15 @@ test('creates a profile, restores a paused workout, and resets local data', asyn
     pending: localStorage.getItem('scirun.pendingSession'),
   }));
   expect(remainingData).toEqual({ state: null, timer: null, pending: null });
-  console.log('E2E checkpoint: reset completed');
   expect(pageErrors).toEqual([]);
+});
+
+
+test('stops configuration when a running limitation is reported', async ({ page }) => {
+  await page.goto('/');
+  await page.locator('#safetyAnswer').selectOption('yes');
+  await page.locator('#setupContinue').click();
+  await expect(page.locator('#safetyStop')).toBeVisible();
+  await expect(page.locator('#setupStepTwo')).not.toBeVisible();
+  expect(await page.evaluate(() => localStorage.getItem('scirun.state'))).toBeNull();
 });
