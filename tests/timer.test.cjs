@@ -234,6 +234,7 @@ test('reset clears the active timer and pending session before returning to onbo
     currentTimer: { index: 0 },
     pendingSession: { id: 'pending' },
     confirm: () => true,
+    t: key => key,
     stopTimerInterval: () => { stopped = true; },
     loadState: () => ({ profile: null, level: 0, history: [] }),
     setupForm: () => {},
