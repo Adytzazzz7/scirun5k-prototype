@@ -16,7 +16,7 @@ test('liquid ring anticipates phase changes and controls use their action colors
   await expect(ring).toHaveCSS('--phase-color','rgb(88, 230, 199)');
   await expect(page.locator('#workoutPause')).toHaveCSS('background-color','rgb(243, 196, 86)');
   await expect(page.locator('#workoutSkip')).toHaveCSS('background-color','rgb(88, 230, 199)');
-  await expect(page.locator('#workoutFinish')).toHaveCSS('background-color','rgb(220, 63, 82)');
+  await expect(page.locator('#workoutFinish')).toHaveCSS('background-color','rgb(210, 50, 72)');
   await expect(wave).toHaveCSS('animation-name','liquid-tide');
 
   await page.locator('#workoutSkip').click();
@@ -68,5 +68,12 @@ test('liquid ring anticipates phase changes and controls use their action colors
   const before=await page.locator('#timerBig').textContent();
   await page.clock.fastForward(1_000);
   await expect(page.locator('#timerBig')).not.toHaveText(before);
+  await page.locator('#workoutBack').click();
+  await page.locator('#nav-settings').click();
+  await page.locator('#themeToggle').click();
+  await page.locator('#nav-dashboard').click();
+  await startWorkout(page);
+  await expect(page.locator('#currentInterval')).toHaveCSS('color','rgb(27, 106, 70)');
+  await page.screenshot({path:'test-results/workout-liquid-light.png',fullPage:true});
   expect(errors).toEqual([]);
 });

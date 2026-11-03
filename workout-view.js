@@ -72,6 +72,7 @@ function updateWorkoutPage(){
  ring.dataset.paused=String(currentTimer.paused);
  ring.style.setProperty('--phase-rgb',visual.rgb.join(', '));
  ring.style.setProperty('--phase-color','rgb('+visual.rgb.join(', ')+')');
+ ring.style.setProperty('--phase-ink','rgb('+visual.rgb.map(channel=>Math.round(channel*.5)).join(', ')+')');
  ring.style.setProperty('--liquid-level',(18+segmentPercent*.62)+'%');
  ring.style.setProperty('--timer-progress',segmentPercent+'%');
  ring.setAttribute('aria-label',workoutText('Intervalul curent: ','Current interval: ')+workoutIntervalName(seg)+', '+formatSeconds(remaining)+', '+workoutText('runda ','round ')+roundNumber+' '+workoutText('din ','of ')+runs.length);

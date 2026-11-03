@@ -420,7 +420,7 @@ html[data-theme="light"] #planReason { color:#617086; }
 .workout-ring[data-paused="true"] .liquid-wave { animation-play-state:paused; }
 #workoutPause { background:#f3c456; color:#302309; border:1px solid #e8b63c; }
 #workoutSkip { background:#58e6c7; color:#04231e; border:1px solid #58e6c7; }
-#workoutFinish { background:#dc3f52; color:#fff; border:1px solid #dc3f52; }
+#workoutFinish { background:#d23248; color:#fff; border:1px solid #d23248; }
 #workoutPause:hover,#workoutSkip:hover,#workoutFinish:hover { filter:brightness(1.06); }
 @keyframes liquid-tide {
   0% { transform:rotate(0deg) translateY(0); }
@@ -436,3 +436,8 @@ html[data-theme="light"] #planReason { color:#617086; }
   .workout-ring::before,.workout-ring::after,.liquid-wave { animation:none !important; }
   .liquid-wave,.workout-current,.workout-ring { transition:none !important; }
 }
+
+html[data-theme="light"] .workout-current { color:var(--phase-ink,#182333); }
+html[data-theme="light"] .workout-recommended-speed { color:#087f69; }
+html[data-theme="light"] .workout-timer-state { color:#216b57; }
+html[data-theme="light"] .phase-countdown { color:#805200; background:rgba(225,165,56,.13); }
