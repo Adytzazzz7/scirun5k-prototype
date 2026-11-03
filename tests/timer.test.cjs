@@ -144,12 +144,12 @@ test('app restores pending feedback before attempting to resume an active timer'
   const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
   const view = fs.readFileSync(path.join(root, 'workout-view.js'), 'utf8');
   assert.match(html, /<script src="pending-session-store\.js"><\/script>/);
-  assert.match(html, /SciRunPendingSessionStore\.save\(pendingSession\)/);
+  assert.match(html, /function savePendingSession\(\)/);
   assert.match(html, /if\(!restorePendingSession\(\)\)restoreTimer\(\)/);
   assert.match(html, /state\.history\.push\(\{id:pendingSession\.id\|\|Date\.now\(\)/);
   assert.match(html, /selectedEffort=pendingSession\.selectedEffort\|\|null/);
-  assert.match(view, /pendingSession\.selectedEffort=selectedEffort;SciRunPendingSessionStore\.save\(pendingSession\)/);
-  assert.match(view, /pendingSession\.selectedRatio=selectedRatio;SciRunPendingSessionStore\.save\(pendingSession\)/);
+  assert.match(view, /pendingSession\.selectedEffort=selectedEffort;savePendingSession\(\)/);
+  assert.match(view, /pendingSession\.selectedRatio=selectedRatio;savePendingSession\(\)/);
 });
 
 test('dashboard plan completion counts complete sessions only, not algorithm stages or partial sessions', () => {
@@ -460,4 +460,86 @@ test('service worker fetches fresh responses, updates cache, and falls back offl
   let postIntercepted = false;
   handlers.fetch({ request: { method: 'POST', url: 'https://scirun.test/api', mode: 'cors' }, respondWith: () => { postIntercepted = true; } });
   assert.equal(postIntercepted, false);
+});
+
+test('local storage quota errors are reported without throwing from state and timer persistence', () => {
+  const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  const helpers = html.match(/let storageFailureNotified=false;[\s\S]*?function clearPendingSession\(\)\{[^\r\n]*\}/)?.[0];
+  const saveState = html.match(/function saveState\(\)\{[^\r\n]*\}/)?.[0];
+  const persistTimer = html.match(/function persistTimer\(\)\{[^\r\n]*\}/)?.[0];
+  assert.ok(helpers);
+  assert.ok(saveState);
+  assert.ok(persistTimer);
+
+  const notices = [];
+  const context = {
+    lang: 'ro',
+    state: { profile: null, level: 0, history: [] },
+    TIMER_STORAGE_KEY: 'scirun.activeTimer',
+    currentTimer: { level: 0 },
+    localStorage: {
+      setItem: () => { throw new Error('quota exceeded'); },
+      removeItem: () => { throw new Error('storage unavailable'); },
+    },
+    toast: message => notices.push(message),
+  };
+  vm.createContext(context);
+  vm.runInContext(helpers + '\n' + saveState + '\n' + persistTimer, context);
+
+  assert.equal(context.saveState(), false);
+  assert.equal(context.persistTimer(), false);
+  context.currentTimer = null;
+  assert.equal(context.persistTimer(), false);
+  assert.equal(notices.length, 1);
+  assert.match(notices[0], /plină|indisponibilă/i);
+});
+
+test('saveFeedback rolls back in-memory progress and preserves feedback when storage fails', () => {
+  const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  const saveFeedback = html.match(/function saveFeedback\(\)\{[\s\S]*?\}\r?\nfunction openManualGoal/)?.[0]?.replace(/\r?\nfunction openManualGoal$/, '');
+  assert.ok(saveFeedback);
+
+  const feedbackError = { textContent: '' };
+  const pending = { id: 'pending-1', level: 0, completion: 1, completedNaturally: true, elapsed: 120 };
+  const context = {
+    pendingSession: pending,
+    state: { profile: {}, level: 0, history: [], easyStreak: 0, moderateStreak: 0, hardStreak: 0, reduceNext: false },
+    selectedEffort: 'easy',
+    selectedRatio: 1,
+    STAGES: [{}, {}],
+    SciRunTimerCore: { isFullSession: () => true },
+    nextScheduledDate: () => new Date('2026-11-03T00:00:00Z'),
+    getWeekNumber: () => 1,
+    dateKey: () => '2026-11-03',
+    saveState: () => false,
+    storageFailureText: () => 'storage-error',
+    t: key => key,
+    $: () => feedbackError,
+    alert: () => {},
+  };
+  vm.createContext(context);
+  vm.runInContext(saveFeedback, context);
+  context.saveFeedback();
+
+  assert.equal(context.state.history.length, 0);
+  assert.equal(context.state.easyStreak, 0);
+  assert.equal(context.pendingSession.id, 'pending-1');
+  assert.equal(feedbackError.textContent, 'storage-error');
+});
+
+test('pending session store reports quota failures instead of throwing', () => {
+  const storeContext = {};
+  vm.createContext(storeContext);
+  vm.runInContext(fs.readFileSync(path.join(root, 'pending-session-store.js'), 'utf8'), storeContext);
+  const store = storeContext.SciRunPendingSessionStore;
+  const storage = {
+    getItem: () => '{broken json',
+    setItem: () => { throw new Error('quota exceeded'); },
+    removeItem: () => { throw new Error('storage unavailable'); },
+  };
+  const session = { id: 'session-2', level: 1, completion: 0.5, elapsed: 120, completedNaturally: false };
+
+  assert.equal(store.save(session, storage), false);
+  assert.equal(store.clear(storage), false);
+  assert.equal(store.load(storage), null);
 });
