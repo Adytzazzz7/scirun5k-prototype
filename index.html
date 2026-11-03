@@ -111,13 +111,14 @@ const I18N = {
 };
 Object.assign(I18N.ro,{navHome:'Acasă',navPlan:'Plan',navProgress:'Progres',planSessions:'ședințe',planCompleted:'Ședințe finalizate',planPercentHelp:'Procentul reflectă ședințele încheiate din planul de 12 săptămâni.',planEyebrowProduct:'PLANUL TĂU',capacityHeading:'CAPACITATE CONFIRMATĂ',capacityEmpty:'Se actualizează după o sesiune completă de alergare continuă.',capacityManual:'Obiectiv de 5 km confirmat manual.',capacitySession:'Cea mai lungă sesiune completă de alergare continuă.',nextSession:'URMĂTOAREA ȘEDINȚĂ',weeklyHeading:'PROGRES SĂPTĂMÂNAL',streakHeading:'SERIE DE ANTRENAMENTE',streakSessions:'ședințe complete consecutive',progressHeading:'Evoluția ta',progressLead:'Rezumatul sesiunilor și al capacității confirmate.',historyLater:'Istoricul avansat și analiza pe perioade sunt planificate pentru o etapă ulterioară.',planOverviewSub:'Program adaptiv · săptămânile viitoare pot fi recalculate.'});
 Object.assign(I18N.en,{navHome:'Home',navPlan:'Plan',navProgress:'Progress',planSessions:'sessions',planCompleted:'Completed sessions',planPercentHelp:'Percentage of sessions completed from the 12-week plan.',planEyebrowProduct:'YOUR PLAN',capacityHeading:'CONFIRMED CAPACITY',capacityEmpty:'Updated after a completed continuous-running session.',capacityManual:'5 km goal manually confirmed.',capacitySession:'Longest completed continuous-running session.',nextSession:'NEXT WORKOUT',weeklyHeading:'WEEKLY PROGRESS',streakHeading:'WORKOUT STREAK',streakSessions:'consecutive complete sessions',progressHeading:'Your progress',progressLead:'Summary of sessions and confirmed capacity.',historyLater:'Advanced history and period analysis are planned for a later stage.',planOverviewSub:'Adaptive plan · future weeks may be recalculated.'});
-let lang = localStorage.getItem('scirun.lang') || 'ro';
+let lang = storageGet('scirun.lang') || 'ro';
 let state = loadState();
-let currentTimer = null; let timerInterval = null; let toastTimeout = null; let pendingSession = null; let selectedEffort = null; let selectedRatio = 1; let workoutMode = 'timer'; let workoutReturnView = 'dashboard'; let soundEnabled = localStorage.getItem('scirun.timerSound') === 'true'; let workoutAudioContext = null;
+let currentTimer = null; let timerInterval = null; let toastTimeout = null; let pendingSession = null; let selectedEffort = null; let selectedRatio = 1; let workoutMode = 'timer'; let workoutReturnView = 'dashboard'; let soundEnabled = storageGet('scirun.timerSound') === 'true'; let workoutAudioContext = null;
 const TIMER_STORAGE_KEY = 'scirun.activeTimer';
 const $ = id => document.getElementById(id);
 function t(key, vars={}) { let s=(I18N[lang]&&I18N[lang][key]) || I18N.ro[key] || key; return s.replace(/\{(\w+)\}/g, (_,k)=>vars[k] ?? ''); }
 let storageFailureNotified=false;
+function storageGet(key){try{return localStorage.getItem(key);}catch(e){return null;}}
 function storageFailureText(){return lang==='ro'?'Stocarea locală este plină sau indisponibilă. Exportă datele și eliberează spațiu înainte să încerci din nou.':'Local storage is full or unavailable. Export your data and free space before trying again.';}
 function notifyStorageFailure(){if(storageFailureNotified)return;storageFailureNotified=true;toast(storageFailureText());}
 function storageSet(key,value){try{localStorage.setItem(key,value);storageFailureNotified=false;return true;}catch(e){notifyStorageFailure();return false;}}
@@ -210,8 +211,8 @@ $('runStatus').addEventListener('change',updateRunInput);$('createPlan').addEven
 document.querySelectorAll('#nav button').forEach(b=>b.addEventListener('click',()=>showView(b.dataset.view)));$('lang-ro').onclick=()=>{lang='ro';storageSet('scirun.lang',lang);applyLanguage();applyTheme(document.documentElement.dataset.theme,false);renderAll();};$('lang-en').onclick=()=>{lang='en';storageSet('scirun.lang',lang);applyLanguage();applyTheme(document.documentElement.dataset.theme,false);renderAll();};
 function applyTheme(theme,persist=true){document.documentElement.dataset.theme=theme;if(persist)storageSet('scirun.theme',theme);const button=$('themeToggle');if(button){button.textContent=theme==='dark'?'☼':'◐';button.setAttribute('aria-label',theme==='dark'?(lang==='ro'?'Activează tema luminoasă':'Switch to light theme'):(lang==='ro'?'Activează tema întunecată':'Switch to dark theme'));}const meta=document.querySelector('meta[name="theme-color"]');if(meta)meta.content=theme==='dark'?'#000000':'#ffffff';}
 function toggleTheme(){applyTheme(document.documentElement.dataset.theme==='dark'?'light':'dark');}
-const savedTheme=localStorage.getItem('scirun.theme');applyTheme(savedTheme|| (window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'),false);
-window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',event=>{if(!localStorage.getItem('scirun.theme'))applyTheme(event.matches?'dark':'light',false);});
+const savedTheme=storageGet('scirun.theme');applyTheme(savedTheme|| (window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'),false);
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',event=>{if(!storageGet('scirun.theme'))applyTheme(event.matches?'dark':'light',false);});
 // Initial state
 applyLanguage();setupForm(state.profile);if(state.profile){showView('dashboard');renderAll();}else showView('onboarding');
 window.addEventListener('pagehide',persistTimer);
