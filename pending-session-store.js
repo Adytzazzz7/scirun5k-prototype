@@ -13,17 +13,27 @@
       }
       return session;
     } catch {
-      storage.removeItem(KEY);
+      try { storage.removeItem(KEY); } catch {}
       return null;
     }
   }
 
   function save(session, storage = localStorage) {
-    storage.setItem(KEY, JSON.stringify(session));
+    try {
+      storage.setItem(KEY, JSON.stringify(session));
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   function clear(storage = localStorage) {
-    storage.removeItem(KEY);
+    try {
+      storage.removeItem(KEY);
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   globalThis.SciRunPendingSessionStore = { load, save, clear };
