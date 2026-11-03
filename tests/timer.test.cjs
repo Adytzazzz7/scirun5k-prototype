@@ -620,10 +620,10 @@ test('abandon keeps the workout in memory when storage cleanup fails', () => {
   const pending = { id: 'pending-3' };
   function makeContext(failPending, failTimer) {
     const notices = [];
-    let stopped = 0, shown = 0, rendered = 0;
+    let stopped = 0, shown = 0, rendered = 0, pendingClearCalls = 0;
     const context = {
       localStorage: { removeItem: key => { if (failTimer && key === 'scirun.activeTimer') throw new Error('storage unavailable'); } },
-      SciRunPendingSessionStore: { clear: () => failPending ? false : true },
+      SciRunPendingSessionStore: { clear: () => { pendingClearCalls++; return failPending ? false : true; } },
       TIMER_STORAGE_KEY: 'scirun.activeTimer', lang: 'en', storageFailureNotified: false,
       currentTimer: active, pendingSession: pending, workoutMode: 'abandon-confirm', workoutReturnView: 'dashboard',
       toast: message => notices.push(message), stopTimerInterval: () => { stopped++; },
@@ -631,7 +631,7 @@ test('abandon keeps the workout in memory when storage cleanup fails', () => {
     };
     vm.createContext(context);
     vm.runInContext(helpers + '\n' + abandonWorkout, context);
-    return { context, notices, stopped: () => stopped, shown: () => shown, rendered: () => rendered };
+    return { context, notices, stopped: () => stopped, shown: () => shown, rendered: () => rendered, pendingClearCalls: () => pendingClearCalls };
   }
   for (const failures of [[true, false], [false, true]]) {
     const scenario = makeContext(...failures);
@@ -643,6 +643,7 @@ test('abandon keeps the workout in memory when storage cleanup fails', () => {
     assert.equal(scenario.shown(), 0);
     assert.equal(scenario.rendered(), 0);
     assert.equal(scenario.notices.length, 1);
+    assert.equal(scenario.pendingClearCalls(), failures[1] ? 0 : 1);
   }
   const scenario = makeContext(false, false);
   assert.equal(scenario.context.abandonWorkout(), true);
@@ -652,4 +653,5 @@ test('abandon keeps the workout in memory when storage cleanup fails', () => {
   assert.equal(scenario.stopped(), 1);
   assert.equal(scenario.shown(), 1);
   assert.equal(scenario.rendered(), 1);
+  assert.equal(scenario.pendingClearCalls(), 1);
 });
