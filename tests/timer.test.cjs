@@ -144,12 +144,12 @@ test('app restores pending feedback before attempting to resume an active timer'
   const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
   const view = fs.readFileSync(path.join(root, 'workout-view.js'), 'utf8');
   assert.match(html, /<script src="pending-session-store\.js"><\/script>/);
-  assert.match(html, /SciRunPendingSessionStore\.save\(pendingSession\)/);
+  assert.match(html, /function savePendingSession\(\)/);
   assert.match(html, /if\(!restorePendingSession\(\)\)restoreTimer\(\)/);
   assert.match(html, /state\.history\.push\(\{id:pendingSession\.id\|\|Date\.now\(\)/);
   assert.match(html, /selectedEffort=pendingSession\.selectedEffort\|\|null/);
-  assert.match(view, /pendingSession\.selectedEffort=selectedEffort;SciRunPendingSessionStore\.save\(pendingSession\)/);
-  assert.match(view, /pendingSession\.selectedRatio=selectedRatio;SciRunPendingSessionStore\.save\(pendingSession\)/);
+  assert.match(view, /pendingSession\.selectedEffort=selectedEffort;savePendingSession\(\)/);
+  assert.match(view, /pendingSession\.selectedRatio=selectedRatio;savePendingSession\(\)/);
 });
 
 test('dashboard plan completion counts complete sessions only, not algorithm stages or partial sessions', () => {
@@ -211,8 +211,10 @@ test('all inline application scripts parse as JavaScript', () => {
 test('reset clears the active timer and pending session before returning to onboarding', () => {
   const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
   const storeSource = fs.readFileSync(path.join(root, 'pending-session-store.js'), 'utf8');
+  const storageHelpers = html.match(/let storageFailureNotified=false;[\s\S]*?function clearPendingSession\(\)\{[^\r\n]*\}/)?.[0];
   const persistTimer = html.match(/function persistTimer\(\)\{[^\r\n]*\}/)?.[0];
   const resetApp = html.match(/function resetApp\(\){[^\r\n]*\}/)?.[0];
+  assert.ok(storageHelpers);
   assert.ok(persistTimer);
   assert.ok(resetApp);
 
@@ -244,6 +246,7 @@ test('reset clears the active timer and pending session before returning to onbo
   };
   vm.createContext(context);
   vm.runInContext(storeSource, context);
+  vm.runInContext(storageHelpers, context);
   vm.runInContext(persistTimer, context);
   vm.runInContext(resetApp, context);
   context.resetApp();
@@ -260,7 +263,9 @@ test('reset clears the active timer and pending session before returning to onbo
 test('timer restoration discards invalid snapshots and still resumes a valid timer', () => {
   const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
   const timerSource = fs.readFileSync(path.join(root, 'timer-core.js'), 'utf8');
+  const storageHelpers = html.match(/let storageFailureNotified=false;[\s\S]*?function clearPendingSession\(\)\{[^\r\n]*\}/)?.[0];
   const restoreTimer = html.match(/function restoreTimer\(\){[^\r\n]*\}/)?.[0];
+  assert.ok(storageHelpers);
   assert.ok(restoreTimer);
 
   function runRestore(rawTimer, hasProfile = true) {
@@ -286,6 +291,7 @@ test('timer restoration discards invalid snapshots and still resumes a valid tim
     };
     vm.createContext(context);
     vm.runInContext(timerSource, context);
+    vm.runInContext(storageHelpers, context);
     vm.runInContext(restoreTimer, context);
     context.restoreTimer();
     return { context, values, notices, rendered: () => rendered, intervalDelay: () => intervalDelay };
@@ -460,4 +466,192 @@ test('service worker fetches fresh responses, updates cache, and falls back offl
   let postIntercepted = false;
   handlers.fetch({ request: { method: 'POST', url: 'https://scirun.test/api', mode: 'cors' }, respondWith: () => { postIntercepted = true; } });
   assert.equal(postIntercepted, false);
+});
+
+test('local storage quota errors are reported without throwing from state and timer persistence', () => {
+  const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  const helpers = html.match(/let storageFailureNotified=false;[\s\S]*?function clearPendingSession\(\)\{[^\r\n]*\}/)?.[0];
+  const saveState = html.match(/function saveState\(\)\{[^\r\n]*\}/)?.[0];
+  const persistTimer = html.match(/function persistTimer\(\)\{[^\r\n]*\}/)?.[0];
+  assert.ok(helpers);
+  assert.ok(saveState);
+  assert.ok(persistTimer);
+
+  const notices = [];
+  const context = {
+    lang: 'ro',
+    state: { profile: null, level: 0, history: [] },
+    TIMER_STORAGE_KEY: 'scirun.activeTimer',
+    currentTimer: { level: 0 },
+    localStorage: {
+      setItem: () => { throw new Error('quota exceeded'); },
+      removeItem: () => { throw new Error('storage unavailable'); },
+    },
+    toast: message => notices.push(message),
+  };
+  vm.createContext(context);
+  vm.runInContext(helpers + '\n' + saveState + '\n' + persistTimer, context);
+
+  assert.equal(context.saveState(), false);
+  assert.equal(context.persistTimer(), false);
+  context.currentTimer = null;
+  assert.equal(context.persistTimer(), false);
+  assert.equal(notices.length, 1);
+  assert.match(notices[0], /plină|indisponibilă/i);
+});
+
+test('saveFeedback rolls back in-memory progress and preserves feedback when storage fails', () => {
+  const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  const saveFeedback = html.match(/function saveFeedback\(\)\{[\s\S]*?\}\r?\nfunction openManualGoal/)?.[0]?.replace(/\r?\nfunction openManualGoal$/, '');
+  assert.ok(saveFeedback);
+
+  const feedbackError = { textContent: '' };
+  const pending = { id: 'pending-1', level: 0, completion: 1, completedNaturally: true, elapsed: 120 };
+  const context = {
+    pendingSession: pending,
+    state: { profile: {}, level: 0, history: [], easyStreak: 0, moderateStreak: 0, hardStreak: 0, reduceNext: false },
+    selectedEffort: 'easy',
+    selectedRatio: 1,
+    STAGES: [{}, {}],
+    SciRunTimerCore: { isFullSession: () => true },
+    nextScheduledDate: () => new Date('2026-11-03T00:00:00Z'),
+    getWeekNumber: () => 1,
+    dateKey: () => '2026-11-03',
+    saveState: () => false,
+    storageFailureText: () => 'storage-error',
+    t: key => key,
+    $: () => feedbackError,
+    alert: () => {},
+  };
+  vm.createContext(context);
+  vm.runInContext(saveFeedback, context);
+  context.saveFeedback();
+
+  assert.equal(context.state.history.length, 0);
+  assert.equal(context.state.easyStreak, 0);
+  assert.equal(context.pendingSession.id, 'pending-1');
+  assert.equal(feedbackError.textContent, 'storage-error');
+});
+
+test('pending session store reports quota failures instead of throwing', () => {
+  const storeContext = {};
+  vm.createContext(storeContext);
+  vm.runInContext(fs.readFileSync(path.join(root, 'pending-session-store.js'), 'utf8'), storeContext);
+  const store = storeContext.SciRunPendingSessionStore;
+  const storage = {
+    getItem: () => '{broken json',
+    setItem: () => { throw new Error('quota exceeded'); },
+    removeItem: () => { throw new Error('storage unavailable'); },
+  };
+  const session = { id: 'session-2', level: 1, completion: 0.5, elapsed: 120, completedNaturally: false };
+
+  assert.equal(store.save(session, storage), false);
+  assert.equal(store.clear(storage), false);
+  assert.equal(store.load(storage), null);
+});
+
+test('profile and manual goal changes roll back when storage refuses the write', () => {
+  const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  const saveProfile = html.match(/function saveProfile\(\)\{[^\r\n]*\}/)?.[0];
+  const openManualGoal = html.match(/function openManualGoal\(\)\{[^\r\n]*\}/)?.[0];
+  assert.ok(saveProfile);
+  assert.ok(openManualGoal);
+
+  const previousProfile = { age: '30-39' };
+  const fields = {
+    onboardError: { textContent: '' },
+    closeGoal: {},
+    cancelGoal: {},
+    confirmGoal: {},
+    goalCheck: { checked: true },
+    goalError: { textContent: '' },
+  };
+  const context = {
+    state: { profile: previousProfile, level: 4, history: [], goalReached: false },
+    readProfile: () => ({ safetyAck: true, trainingDays: [1, 3, 5], runStatus: 'known', runMinutes: 4 }),
+    selectSpacedDays: days => days,
+    dateKey: () => '2026-11-03',
+    stageForRunMinutes: () => 2,
+    saveState: () => false,
+    storageFailureText: () => 'storage-error',
+    $: id => fields[id],
+    t: key => key,
+    openModal: () => {},
+    closeModal: () => {},
+    showView: () => {},
+    renderAll: () => {},
+    toast: () => {},
+    lang: 'en',
+  };
+  vm.createContext(context);
+  vm.runInContext(saveProfile, context);
+  vm.runInContext(openManualGoal, context);
+
+  assert.equal(context.saveProfile(), false);
+  assert.equal(context.state.profile, previousProfile);
+  assert.equal(context.state.level, 4);
+  assert.equal(fields.onboardError.textContent, 'storage-error');
+
+  context.openManualGoal();
+  fields.confirmGoal.onclick();
+  assert.equal(context.state.goalReached, false);
+});
+test('startup preference reads tolerate inaccessible local storage', () => {
+  const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  const storageGet = html.match(/function storageGet\(key\)\{[^\r\n]*\}/)?.[0];
+  assert.ok(storageGet);
+  const context = { localStorage: { getItem: () => { throw new Error('storage unavailable'); } } };
+  vm.createContext(context);
+  vm.runInContext(storageGet, context);
+  assert.equal(context.storageGet('scirun.lang'), null);
+  assert.match(html, /let lang = storageGet\('scirun\.lang'\) \|\| 'ro';/);
+  assert.match(html, /soundEnabled = storageGet\('scirun\.timerSound'\) === 'true'/);
+  assert.match(html, /const savedTheme=storageGet\('scirun\.theme'\)/);
+  assert.match(html, /if\(!storageGet\('scirun\.theme'\)\)/);
+});
+
+test('abandon keeps the workout in memory when storage cleanup fails', () => {
+  const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  const helpers = html.match(/let storageFailureNotified=false;[\s\S]*?function clearPendingSession\(\)\{[^\r\n]*\}/)?.[0];
+  const abandonWorkout = html.match(/function abandonWorkout\(\)\{[^\r\n]*\}/)?.[0];
+  assert.ok(helpers);
+  assert.ok(abandonWorkout);
+  const active = { level: 1 };
+  const pending = { id: 'pending-3' };
+  function makeContext(failPending, failTimer) {
+    const notices = [];
+    let stopped = 0, shown = 0, rendered = 0, pendingClearCalls = 0;
+    const context = {
+      localStorage: { removeItem: key => { if (failTimer && key === 'scirun.activeTimer') throw new Error('storage unavailable'); } },
+      SciRunPendingSessionStore: { clear: () => { pendingClearCalls++; return failPending ? false : true; } },
+      TIMER_STORAGE_KEY: 'scirun.activeTimer', lang: 'en', storageFailureNotified: false,
+      currentTimer: active, pendingSession: pending, workoutMode: 'abandon-confirm', workoutReturnView: 'dashboard',
+      toast: message => notices.push(message), stopTimerInterval: () => { stopped++; },
+      showView: () => { shown++; }, renderAll: () => { rendered++; },
+    };
+    vm.createContext(context);
+    vm.runInContext(helpers + '\n' + abandonWorkout, context);
+    return { context, notices, stopped: () => stopped, shown: () => shown, rendered: () => rendered, pendingClearCalls: () => pendingClearCalls };
+  }
+  for (const failures of [[true, false], [false, true]]) {
+    const scenario = makeContext(...failures);
+    assert.equal(scenario.context.abandonWorkout(), false);
+    assert.equal(scenario.context.currentTimer, active);
+    assert.equal(scenario.context.pendingSession, pending);
+    assert.equal(scenario.context.workoutMode, 'abandon-confirm');
+    assert.equal(scenario.stopped(), 0);
+    assert.equal(scenario.shown(), 0);
+    assert.equal(scenario.rendered(), 0);
+    assert.equal(scenario.notices.length, 1);
+    assert.equal(scenario.pendingClearCalls(), failures[1] ? 0 : 1);
+  }
+  const scenario = makeContext(false, false);
+  assert.equal(scenario.context.abandonWorkout(), true);
+  assert.equal(scenario.context.currentTimer, null);
+  assert.equal(scenario.context.pendingSession, null);
+  assert.equal(scenario.context.workoutMode, 'timer');
+  assert.equal(scenario.stopped(), 1);
+  assert.equal(scenario.shown(), 1);
+  assert.equal(scenario.rendered(), 1);
+  assert.equal(scenario.pendingClearCalls(), 1);
 });
