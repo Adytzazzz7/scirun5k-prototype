@@ -112,7 +112,7 @@ test('PWA manifest and precache refer to existing root-level icons and timer cod
     assert.equal(fs.existsSync(path.join(root, icon.src.replace(/^\.\//, ''))), true, icon.src);
   }
   const worker = fs.readFileSync(path.join(root, 'sw.js'), 'utf8');
-  for (const asset of ['./icon-192.png', './icon-512.png', './timer-core.js', './pending-session-store.js', './dashboard-metrics.js', './workout-view.js', './liquid-glass.css', './app.css']) {
+  for (const asset of ['./icon-192.png', './icon-512.png', './timer-core.js', './pending-session-store.js', './dashboard-metrics.js', './workout-view.js', './state-backup.js', './liquid-glass.css', './app.css']) {
     assert.ok(worker.includes(asset), `${asset} is precached`);
     assert.equal(fs.existsSync(path.join(root, asset.slice(2))), true, asset);
   }
@@ -772,4 +772,73 @@ test('reset rolls back saved data and leaves the app unchanged when cleanup fail
   assert.equal(readFailure.removeCalls(), 0);
   assert.equal(readFailure.context.state, readFailure.savedState);
   assert.equal(readFailure.notices.length, 1);
+});
+
+
+test('backup import validates exported state and sanitizes history fields', () => {
+  const backupContext = {};
+  vm.createContext(backupContext);
+  vm.runInContext(fs.readFileSync(path.join(root, 'state-backup.js'), 'utf8'), backupContext);
+  const profile = {
+    age: '30-39', sex: '', runStatus: 'none', runMinutes: 0, steps: null,
+    trainingDays: [1, 3, 5], safetyAck: true, startDate: '2026-11-03',
+    ignoredField: '<script>not persisted</script>',
+  };
+  const saved = {
+    profile, level: 2,
+    history: [{
+      id: 123, date: '2026-11-03', level: 2, status: 'done', effort: 'easy',
+      completion: 1, timerCompletion: 1, elapsed: 600, week: 1,
+      completedAt: '2026-11-03T12:00:00.000Z',
+      ignoredField: '<script>not persisted</script>',
+    }],
+    easyStreak: 1, moderateStreak: 0, hardStreak: 0, reduceNext: false, goalReached: false,
+  };
+  const imported = backupContext.SciRunStateBackup.parse(JSON.stringify(saved), 15);
+  assert.deepEqual(JSON.parse(JSON.stringify(imported)), {
+    profile: {
+      age: '30-39', sex: '', runStatus: 'none', runMinutes: 0, steps: null,
+      trainingDays: [1, 3, 5], safetyAck: true, startDate: '2026-11-03',
+    },
+    level: 2,
+    history: [{
+      id: 123, date: '2026-11-03', level: 2, status: 'done', effort: 'easy',
+      completion: 1, timerCompletion: 1, elapsed: 600, week: 1,
+      completedAt: '2026-11-03T12:00:00.000Z',
+    }],
+    easyStreak: 1, moderateStreak: 0, hardStreak: 0, reduceNext: false, goalReached: false,
+  });
+  assert.deepEqual(JSON.parse(JSON.stringify(
+    backupContext.SciRunStateBackup.parse(JSON.stringify({ profile: null, level: 0, history: [] }), 15),
+  )), {
+    profile: null, level: 0, history: [],
+    easyStreak: 0, moderateStreak: 0, hardStreak: 0, reduceNext: false, goalReached: false,
+  });
+});
+
+test('backup import rejects malformed, unsafe, or structurally incomplete data', () => {
+  const backupContext = {};
+  vm.createContext(backupContext);
+  vm.runInContext(fs.readFileSync(path.join(root, 'state-backup.js'), 'utf8'), backupContext);
+  const profile = {
+    age: '30-39', sex: '', runStatus: 'none', runMinutes: 0, steps: null,
+    trainingDays: [1, 3, 5], safetyAck: true, startDate: '2026-11-03',
+  };
+  const valid = { profile, level: 2, history: [] };
+  const invalidBackups = [
+    '{broken json',
+    JSON.stringify({ profile, level: 99, history: [] }),
+    JSON.stringify({ ...valid, profile: { ...profile, age: '<img src=x onerror=alert(1)>' } }),
+    JSON.stringify({ ...valid, history: [{ date: '2026-02-30', level: 1 }] }),
+    JSON.stringify({ ...valid, history: [{ date: '2026-11-03', level: 1, status: '<script>' }] }),
+    JSON.stringify({ ...valid, easyStreak: -1 }),
+    JSON.stringify({ ...valid, profile: null, history: [{ date: '2026-11-03', level: 1 }] }),
+  ];
+
+  for (const backup of invalidBackups) {
+    assert.throws(
+      () => backupContext.SciRunStateBackup.parse(backup, 15),
+      /Invalid SciRun backup file/,
+    );
+  }
 });

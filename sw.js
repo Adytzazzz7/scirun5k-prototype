@@ -1,4 +1,4 @@
-const CACHE_NAME = 'scirun5k-v0-7';
+const CACHE_NAME = 'scirun5k-v0-8';
 const ASSETS = [
   './',
   './index.html',
@@ -10,6 +10,7 @@ const ASSETS = [
   './pending-session-store.js',
   './dashboard-metrics.js',
   './workout-view.js',
+  './state-backup.js',
   './liquid-glass.css',
   './app.css'
 ];

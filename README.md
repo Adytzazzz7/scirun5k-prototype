@@ -21,4 +21,4 @@ Pentru instalare pe telefon, servește folderul prin HTTPS, de exemplu cu GitHub
 - Obiectivul de 5 km se confirmă manual, după măsurarea distanței printr-o metodă separată.
 - Predicția de timp este doar orientativă; nu este un model de machine learning antrenat pe o populație.
 - Treptele și pragurile de adaptare sunt ipoteze de produs pentru testare, nu prescripții validate clinic.
-- Datele rămân în browserul dispozitivului. Ștergerea datelor browserului poate șterge istoricul.
+- Datele rămân în browserul dispozitivului. Ștergerea datelor browserului poate șterge istoricul. Din Profil, poți exporta un fișier JSON și îl poți importa pentru restaurare.
