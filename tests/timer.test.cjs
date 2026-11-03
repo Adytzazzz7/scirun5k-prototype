@@ -707,3 +707,69 @@ test('state read failures preserve saved sessions and block overwriting until a 
   assert.equal(context.saveState(), true);
   assert.equal(writes, 1);
 });
+
+test('reset rolls back saved data and leaves the app unchanged when cleanup fails', () => {
+  const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  const storeSource = fs.readFileSync(path.join(root, 'pending-session-store.js'), 'utf8');
+  const helpers = html.match(/let storageFailureNotified=false;[\s\S]*?function clearPendingSession\(\)\{[^\r\n]*\}/)?.[0];
+  const resetApp = html.match(/function resetApp\(\)\{[^\r\n]*\}/)?.[0];
+  assert.ok(helpers);
+  assert.ok(resetApp);
+
+  const initial = [
+    ['scirun.state', '{"profile":{"age":"30-39"}}'],
+    ['scirun.activeTimer', '{"level":0}'],
+    ['scirun.pendingSession', '{"id":"pending"}'],
+  ];
+  function run(failRemovalKey = null, failReadKey = null) {
+    const values = new Map(initial);
+    let removeCalls = 0, stopped = 0, activeView = null, setupCalls = 0, loads = 0;
+    const notices = [];
+    const savedState = { profile: { age: '30-39' }, level: 2, history: [] };
+    const activeTimer = { index: 0 };
+    const pending = { id: 'pending' };
+    const context = {
+      localStorage: {
+        getItem: key => { if (key === failReadKey) throw new Error('storage unavailable'); return values.get(key) ?? null; },
+        setItem: (key, value) => values.set(key, String(value)),
+        removeItem: key => { removeCalls++; if (key === failRemovalKey) throw new Error('storage unavailable'); values.delete(key); },
+      },
+      TIMER_STORAGE_KEY: 'scirun.activeTimer', stateStorageReadFailed: false,
+      currentTimer: activeTimer, pendingSession: pending, state: savedState,
+      confirm: () => true, t: key => key, lang: 'ro',
+      stopTimerInterval: () => { stopped++; },
+      loadState: () => { loads++; return { profile: null, level: 0, history: [] }; },
+      setupForm: () => { setupCalls++; },
+      showView: view => { activeView = view; },
+      toast: message => notices.push(message),
+    };
+    vm.createContext(context);
+    vm.runInContext(storeSource, context);
+    vm.runInContext(helpers + '\n' + resetApp, context);
+    const result = context.resetApp();
+    return { result, values, context, savedState, activeTimer, pending, notices, removeCalls: () => removeCalls, stopped: () => stopped, activeView: () => activeView, setupCalls: () => setupCalls, loads: () => loads };
+  }
+
+  for (const key of ['scirun.activeTimer', 'scirun.pendingSession', 'scirun.state']) {
+    const scenario = run(key);
+    assert.equal(scenario.result, false);
+    assert.equal(scenario.values.size, initial.length);
+    for (const [key, value] of initial) assert.equal(scenario.values.get(key), value);
+    assert.equal(scenario.context.state, scenario.savedState);
+    assert.equal(scenario.context.currentTimer, scenario.activeTimer);
+    assert.equal(scenario.context.pendingSession, scenario.pending);
+    assert.equal(scenario.stopped(), 0);
+    assert.equal(scenario.activeView(), null);
+    assert.equal(scenario.setupCalls(), 0);
+    assert.equal(scenario.loads(), 0);
+    assert.equal(scenario.notices.length, 1);
+  }
+
+  const readFailure = run(null, 'scirun.pendingSession');
+  assert.equal(readFailure.result, false);
+  assert.equal(readFailure.values.size, initial.length);
+  for (const [key, value] of initial) assert.equal(readFailure.values.get(key), value);
+  assert.equal(readFailure.removeCalls(), 0);
+  assert.equal(readFailure.context.state, readFailure.savedState);
+  assert.equal(readFailure.notices.length, 1);
+});
