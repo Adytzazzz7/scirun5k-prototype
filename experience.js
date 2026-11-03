@@ -193,10 +193,13 @@
     const p = state.profile || {};
     const level = Math.max(0, Number(state.level) || 0);
     const pace = Number(p.runSpeed) > 0 ? Number(p.runSpeed) : 6;
+    const targetMinutes = 300 / pace;
+    const matchingStage = STAGES.findIndex(s => s.type === 'continuous' && s.run / 60 >= targetMinutes);
+    const targetLevel = matchingStage >= 0 ? matchingStage : STAGES.length - 1;
     const finalStageMinutes = STAGES[STAGES.length - 1].run / 60;
     const achievedFinalMinutes = Math.max(finalStageMinutes, ...state.history.filter(s => s.status === 'done' && s.level === STAGES.length - 1 && !(s.skippedRunSeconds > 0)).map(s => (Number(s.longestRunSeconds) || STAGES.at(-1).run) / 60));
     const extraSessions = Math.ceil(Math.max(0, 300 / pace - achievedFinalMinutes) * 2);
-    const sessionsLeft = Math.max(1, Math.ceil((STAGES.length - 1 - level) * 2.4 + extraSessions));
+    const sessionsLeft = Math.max(1, Math.ceil(Math.max(0, targetLevel - level) * 2.4 + extraSessions));
     const dates = experiencePlanDates(sessionsLeft);
     return dates.at(-1) || experienceNextDate();
   }
