@@ -362,3 +362,53 @@ test('loadState normalizes malformed persisted fields while preserving valid pro
   assert.equal(state.reduceNext, false);
   assert.equal(state.goalReached, false);
 });
+
+test('exportData attaches the download link and defers object URL cleanup', () => {
+  const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  const exportData = html.match(/function exportData\(\)\{[^\r\n]*\}/)?.[0];
+  assert.ok(exportData);
+
+  const events = [];
+  const state = { profile: { age: '30-39' }, history: [] };
+  const anchor = {
+    href: '',
+    download: '',
+    click: () => events.push('click'),
+    remove: () => events.push('remove'),
+  };
+  let createdBlob = null;
+  let revokeCallback = null;
+  const context = {
+    state,
+    Blob: class {
+      constructor(parts, options) {
+        createdBlob = { parts, options };
+      }
+    },
+    URL: {
+      createObjectURL: blob => { assert.equal(blob, createdBlob); events.push('create-url'); return 'blob:scirun-export'; },
+      revokeObjectURL: url => events.push('revoke:' + url),
+    },
+    document: {
+      createElement: tag => { assert.equal(tag, 'a'); events.push('create-anchor'); return anchor; },
+      body: { appendChild: node => { assert.equal(node, anchor); events.push('append'); } },
+    },
+    setTimeout: (callback, delay) => { revokeCallback = callback; events.push('schedule:' + delay); return 1; },
+    toast: message => events.push('toast:' + message),
+    t: key => key,
+  };
+  vm.createContext(context);
+  vm.runInContext(exportData, context);
+  context.exportData();
+
+  assert.equal(anchor.href, 'blob:scirun-export');
+  assert.equal(anchor.download, 'scirun5k-personal-data.json');
+  assert.deepEqual(createdBlob.options, { type: 'application/json' });
+  assert.equal(JSON.parse(createdBlob.parts[0]).profile.age, '30-39');
+  assert.deepEqual(events, ['create-url', 'create-anchor', 'append', 'click', 'remove', 'schedule:1000', 'toast:exportDone']);
+  assert.equal(typeof revokeCallback, 'function');
+  assert.equal(events.some(event => event.startsWith('revoke:')), false);
+
+  revokeCallback();
+  assert.equal(events.at(-1), 'revoke:blob:scirun-export');
+});
