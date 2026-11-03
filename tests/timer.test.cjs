@@ -322,3 +322,142 @@ test('timer restoration discards invalid snapshots and still resumes a valid tim
   assert.equal(resumed.intervalDelay(), 250);
   assert.equal(resumed.notices.length, 0);
 });
+
+test('loadState normalizes malformed persisted fields while preserving valid profile and history data', () => {
+  const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  const loadState = html.match(/function loadState\(\)\{[^\r\n]*\}/)?.[0];
+  assert.ok(loadState);
+
+  const stored = {
+    profile: { age: '30-39', trainingDays: { invalid: true } },
+    level: 99,
+    history: [
+      { id: 'valid', date: '2026-11-03', level: 2, status: 'done' },
+      null,
+      { id: 'bad-date', date: 'yesterday', level: 1, status: 'done' },
+      { id: 'bad-level', date: '2026-11-02', level: 99, status: 'done' },
+      ['not', 'a', 'session'],
+    ],
+    easyStreak: -2,
+    moderateStreak: '3',
+    hardStreak: 1.5,
+    reduceNext: 'false',
+    goalReached: 1,
+  };
+  const context = {
+    STAGES: Array.from({ length: 15 }, () => ({})),
+    localStorage: { getItem: () => JSON.stringify(stored) },
+  };
+  vm.createContext(context);
+  vm.runInContext(loadState, context);
+  const state = context.loadState();
+
+  assert.equal(state.profile.age, '30-39');
+  assert.deepEqual(Array.from(state.profile.trainingDays), [1, 3, 5]);
+  assert.equal(state.level, 0);
+  assert.deepEqual(Array.from(state.history, session => session.id), ['valid']);
+  assert.equal(state.easyStreak, 0);
+  assert.equal(state.moderateStreak, 0);
+  assert.equal(state.hardStreak, 0);
+  assert.equal(state.reduceNext, false);
+  assert.equal(state.goalReached, false);
+});
+
+test('exportData attaches the download link and defers object URL cleanup', () => {
+  const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  const exportData = html.match(/function exportData\(\)\{[^\r\n]*\}/)?.[0];
+  assert.ok(exportData);
+
+  const events = [];
+  const state = { profile: { age: '30-39' }, history: [] };
+  const anchor = {
+    href: '',
+    download: '',
+    click: () => events.push('click'),
+    remove: () => events.push('remove'),
+  };
+  let createdBlob = null;
+  let revokeCallback = null;
+  const context = {
+    state,
+    Blob: class {
+      constructor(parts, options) { createdBlob = { parts, options }; }
+    },
+    URL: {
+      createObjectURL: blob => { assert.ok(blob); events.push('create-url'); return 'blob:scirun-export'; },
+      revokeObjectURL: url => events.push('revoke:' + url),
+    },
+    document: {
+      createElement: tag => { assert.equal(tag, 'a'); events.push('create-anchor'); return anchor; },
+      body: { appendChild: node => { assert.equal(node, anchor); events.push('append'); } },
+    },
+    setTimeout: (callback, delay) => { revokeCallback = callback; events.push('schedule:' + delay); return 1; },
+    toast: message => events.push('toast:' + message),
+    t: key => key,
+  };
+  vm.createContext(context);
+  vm.runInContext(exportData, context);
+  context.exportData();
+
+  assert.equal(anchor.href, 'blob:scirun-export');
+  assert.equal(anchor.download, 'scirun5k-personal-data.json');
+  assert.equal(createdBlob.options.type, 'application/json');
+  assert.equal(JSON.parse(createdBlob.parts[0]).profile.age, '30-39');
+  assert.deepEqual(events, ['create-url', 'create-anchor', 'append', 'click', 'remove', 'schedule:1000', 'toast:exportDone']);
+  assert.equal(typeof revokeCallback, 'function');
+  assert.equal(events.some(event => event.startsWith('revoke:')), false);
+
+  revokeCallback();
+  assert.equal(events.at(-1), 'revoke:blob:scirun-export');
+});
+
+test('service worker fetches fresh responses, updates cache, and falls back offline', async () => {
+  const source = fs.readFileSync(path.join(root, 'sw.js'), 'utf8');
+  const handlers = {};
+  const entries = new Map();
+  const cache = {
+    put: async (request, response) => {
+      entries.set(typeof request === 'string' ? request : request.url, response);
+    },
+  };
+  const context = {
+    self: {
+      location: { origin: 'https://scirun.test' },
+      addEventListener: (name, handler) => { handlers[name] = handler; },
+    },
+    caches: {
+      open: async () => cache,
+      match: async request => entries.get(typeof request === 'string' ? request : request.url) || null,
+    },
+    fetch: async () => { throw new Error('network unavailable'); },
+    URL,
+    Response: { error: () => ({ error: true }) },
+  };
+  vm.createContext(context);
+  vm.runInContext(source, context);
+  const request = { method: 'GET', url: 'https://scirun.test/index.html', mode: 'navigate' };
+  const dispatch = request => {
+    let response = null;
+    handlers.fetch({ request, respondWith: promise => { response = promise; } });
+    return response;
+  };
+
+  const freshResponse = { ok: true, version: 'fresh', clone: () => ({ version: 'cached-fresh' }) };
+  context.fetch = async () => freshResponse;
+  assert.equal(await dispatch(request), freshResponse);
+  assert.equal(entries.get(request.url).version, 'cached-fresh');
+
+  context.fetch = async () => { throw new Error('offline'); };
+  assert.equal(await dispatch(request), entries.get(request.url));
+
+  const offlineIndex = { version: 'offline-index' };
+  entries.set('./index.html', offlineIndex);
+  assert.equal(await dispatch({ method: 'GET', url: 'https://scirun.test/other-route', mode: 'navigate' }), offlineIndex);
+
+  const offlineAsset = await dispatch({ method: 'GET', url: 'https://scirun.test/missing.js', mode: 'no-cors' });
+  assert.equal(offlineAsset.error, true);
+
+  let postIntercepted = false;
+  handlers.fetch({ request: { method: 'POST', url: 'https://scirun.test/api', mode: 'cors' }, respondWith: () => { postIntercepted = true; } });
+  assert.equal(postIntercepted, false);
+});
