@@ -71,7 +71,7 @@
     document.querySelectorAll('#nav button').forEach(b => b.classList.toggle('active', b.dataset.view === id));
     document.body.classList.toggle('workout-active', id === 'workout');
     document.body.classList.toggle('setup-active', id === 'onboarding');
-    if (id !== 'workout') window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (id !== 'workout') window.scrollTo({ top: 0, behavior: 'auto' });
     manageWakeLock();
   }
   showView = showExperienceView;

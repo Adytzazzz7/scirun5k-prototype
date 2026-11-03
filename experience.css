@@ -335,3 +335,17 @@ html[data-theme="light"] .stat .value, html[data-theme="light"] .setting-row { c
 .workout-current { color:var(--phase-color); }
 
 @media(max-width:720px) { .topbar { backdrop-filter:none; -webkit-backdrop-filter:none; background:#080a10; } html[data-theme="light"] .topbar { background:#fff; } }
+
+.card, .stat, .formcard, .week, .history-entry { backdrop-filter:none; -webkit-backdrop-filter:none; }
+@media(max-width:720px) { .nav { left:12px; right:auto; width:calc(100vw - 24px); margin:0; justify-self:stretch; } }
+html[data-theme="light"] .sectiontitle h2,
+html[data-theme="light"] .btn.ghost,
+html[data-theme="light"] .text-button { color:#182333; }
+html[data-theme="light"] .why-plan p,
+html[data-theme="light"] .workout-metrics small,
+html[data-theme="light"] .home-speed-stats small { color:#617086; }
+html[data-theme="light"] .tag, html[data-theme="light"] .tag.orange { color:#087e68; }
+html[data-theme="light"] .phase-chip.running { color:#087f69; }
+html[data-theme="light"] .phase-chip.warmup { color:#225fae; }
+html[data-theme="light"] .phase-chip.walking { color:#8a5c08; }
+html[data-theme="light"] .phase-chip.cooldown { color:#6e40ad; }

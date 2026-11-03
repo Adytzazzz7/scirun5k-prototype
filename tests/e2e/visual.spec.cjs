@@ -5,6 +5,7 @@ test('dashboard fits desktop and mobile in both themes', async ({ page }) => {
   await page.clock.install({ time: new Date('2026-11-03T09:00:00Z') });
   await page.setViewportSize({ width: 1440, height: 1000 });
   await createProfile(page);
+  await page.clock.fastForward(5_000);
   const checkWidth = async () => {
     const size = await page.evaluate(() => ({ viewport: window.innerWidth, content: document.documentElement.scrollWidth }));
     expect(size.content).toBeLessThanOrEqual(size.viewport + 1);
@@ -19,6 +20,7 @@ test('dashboard fits desktop and mobile in both themes', async ({ page }) => {
   const mobileNav = await page.locator('#nav').boundingBox();
   expect(mobileNav.y + mobileNav.height).toBeLessThanOrEqual(844);
   expect(mobileNav.y).toBeGreaterThan(700);
+  expect(mobileNav.width).toBeGreaterThanOrEqual(360);
   await page.screenshot({ path: 'test-results/dashboard-mobile-dark.png', fullPage: true, animations: 'disabled' });
   await page.locator('#nav-settings').click();
   await page.locator('#themeToggle').click();
