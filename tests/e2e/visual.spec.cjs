@@ -3,10 +3,10 @@ const { createProfile } = require('./helpers.cjs');
 
 test('dashboard fits desktop and mobile in both themes', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
-  await page.clock.install({ time: new Date('2026-11-03T09:00:00Z') });
+  await page.clock.setFixedTime(new Date('2026-11-03T09:00:00Z'));
   await page.setViewportSize({ width: 1440, height: 1000 });
   await createProfile(page);
-  await page.clock.fastForward(5_000);
+  await expect(page.locator('#toast')).toHaveClass(/hidden/);
   const checkWidth = async () => {
     const size = await page.evaluate(() => ({ viewport: window.innerWidth, content: document.documentElement.scrollWidth }));
     if (size.content > size.viewport + 1) console.log('Overflowing elements', await page.evaluate(() => [...document.querySelectorAll('body *')].map(el => ({id:el.id,className:el.className,right:el.getBoundingClientRect().right})).filter(el => el.right > innerWidth + 1).slice(0,12)));
