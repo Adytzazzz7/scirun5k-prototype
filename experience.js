@@ -18,8 +18,8 @@
   };
 
 
-  Object.assign(I18N.ro, { navHome: 'Panou', navProgress: 'Istoric', navProfile: 'Setări', setupTitle: 'Începem cu nivelul tău actual.' });
-  Object.assign(I18N.en, { navHome: 'Dashboard', navProgress: 'History', navProfile: 'Settings', setupTitle: 'Start with your current level.' });
+  Object.assign(I18N.ro, { navHome: 'Panou', navProgress: 'Istoric', navProfile: 'Setări', effortExhausted: 'Epuizant', setupTitle: 'Începem cu nivelul tău actual.' });
+  Object.assign(I18N.en, { navHome: 'Dashboard', navProgress: 'History', navProfile: 'Settings', effortExhausted: 'Exhausting', setupTitle: 'Start with your current level.' });
 
   function experienceStrings() {
     Object.assign(effortNames, { veryEasy: t('effortVeryEasy'), easy: t('effortEasy'), moderate: t('effortModerate'), hard: t('effortHard'), exhausted: txt('Epuizant', 'Exhausting') });
@@ -31,7 +31,7 @@
       'Step ' + ( $('setupStepTwo').classList.contains('hidden') ? '1' : '2') + ' of 2');
     $('setupStepDot1').classList.toggle('current', $('setupStepTwo').classList.contains('hidden'));
     $('setupStepDot2').classList.toggle('current', !$('setupStepTwo').classList.contains('hidden'));
-    if ($('safetyAnswer')) $('safetyAnswer').options[0].text = txt('Selectează', 'Select an answer');
+    if ($('safetyAnswer')) { $('safetyAnswer').options[0].text = txt('Selectează', 'Select an answer'); $('safetyAnswer').options[1].text = txt('Nu', 'No'); $('safetyAnswer').options[2].text = txt('Da', 'Yes'); }
     if ($('safetyStop') && !$('safetyStop').classList.contains('hidden')) $('safetyStop').textContent = txt('Nu putem crea un plan acum. SciRun nu poate evalua această limitare sau adapta antrenamentul la ea. Cere sfatul unui specialist înainte să începi; poți reveni mai târziu.', 'We cannot create a plan right now. SciRun cannot assess this limitation or adapt training to it. Ask a specialist before you start; you can return later.');
     ['sessionsPerWeek', 'settingFrequency'].forEach(id => {
       const select = $(id);
@@ -291,7 +291,7 @@
     const stageData = STAGES[Math.min(STAGES.length - 1, state.level)];
     const estimate = estimateReadyDate();
     const upcoming = experienceNextDate();
-    const weeksOut = Math.max(1, Math.ceil((upcoming - localDay(new Date())) / 604800000) + 1);
+    const weeksOut = Math.max(1, getWeekNumber(upcoming));
     $('longestRun').textContent = longestContinuousMinutes() ? longestContinuousMinutes() + ' ' + txt('min', 'min') : '—';
     $('completeSessions').textContent = String(completedCount());
     $('goalDate').textContent = dateInWords(estimate);
@@ -302,7 +302,7 @@
     $('workoutTypeTag').textContent = stageData.type === 'continuous' ? txt('ALERGARE CONTINUĂ', 'CONTINUOUS RUN') : txt('INTERVALE PE TIMP', 'TIMED INTERVALS');
     const segments = buildSegments(state.level, state.reduceNext ? 0.8 : 1);
     $('workoutDuration').textContent = formatSeconds(segments.reduce((sum, item) => sum + item.seconds, 0));
-    $('suggestedSpeed').textContent = speedFor('run') ? speedFor('run').toFixed(1) + ' km/h' : txt('Se stabilește la prima sesiune', 'Set during first workout');
+    $('suggestedSpeed').textContent = speedFor('run') ? speedFor('run').toFixed(1) + ' km/h' : txt('La prima sesiune', 'First workout');
     $('longestRunPlan').textContent = formatSeconds(segments.filter(item => item.type === 'run').reduce((sum, item) => sum + item.seconds, 0));
     const chipClasses = { warmup: 'warmup', run: 'running', walk: 'walking', cooldown: 'cooldown' };
     const chipLabels = { warmup: txt('ÎNCĂLZIRE', 'WARM-UP'), run: txt('ALERGARE', 'RUN'), walk: txt('MERS', 'WALK'), cooldown: txt('REVENIRE', 'COOL-DOWN') };
