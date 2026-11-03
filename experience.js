@@ -121,7 +121,11 @@
       firstSessionFeedbackDone: state.profile?.firstSessionFeedbackDone === true
     };
     state.profile = profile;
-    if (!state.history.length) state.level = stageForRunMinutes(runMinutes);
+    const startingLevel = stageForRunMinutes(runMinutes);
+    if (!state.history.length) state.level = startingLevel;
+    else if (startingLevel < state.level) state.level = startingLevel;
+    else if (startingLevel > state.level) state.level = Math.min(startingLevel, state.level + 1);
+    if (state.level !== previous.level) { state.easyStreak = 0; state.moderateStreak = 0; state.hardStreak = 0; state.reduceNext = false; state.lastPlanReason = txt('Plan actualizat după nivelul de alergare raportat.', 'Plan updated from your reported running capacity.'); }
     state.blackoutDates = Array.isArray(state.blackoutDates) ? state.blackoutDates : [];
     if (!saveState()) {
       state = previous;
@@ -678,6 +682,7 @@
   }
   resetApp = resetExperience;
   openEditProfile = function () {
+    if (currentTimer || pendingSession) { toast(txt('Încheie sesiunea înainte să schimbi nivelul de pornire.', 'Finish the workout before changing your starting level.')); return; }
     setupForm(state.profile);
     showView('onboarding');
     $('setupEyebrow')?.scrollIntoView({ behavior: 'smooth', block: 'start' });

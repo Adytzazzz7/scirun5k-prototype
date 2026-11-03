@@ -333,3 +333,5 @@ html[data-theme="light"] .stat .value, html[data-theme="light"] .setting-row { c
 .workout-ring[data-phase="walk"] { --phase-color:#f0b84e; }
 .workout-ring[data-phase="cooldown"] { --phase-color:#b385ff; }
 .workout-current { color:var(--phase-color); }
+
+@media(max-width:720px) { .topbar { backdrop-filter:none; -webkit-backdrop-filter:none; background:#080a10; } html[data-theme="light"] .topbar { background:#fff; } }
