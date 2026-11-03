@@ -410,3 +410,54 @@ test('exportData attaches the download link and defers object URL cleanup', () =
   revokeCallback();
   assert.equal(events.at(-1), 'revoke:blob:scirun-export');
 });
+
+test('service worker fetches fresh responses, updates cache, and falls back offline', async () => {
+  const source = fs.readFileSync(path.join(root, 'sw.js'), 'utf8');
+  const handlers = {};
+  const entries = new Map();
+  const cache = {
+    put: async (request, response) => {
+      entries.set(typeof request === 'string' ? request : request.url, response);
+    },
+  };
+  const context = {
+    self: {
+      location: { origin: 'https://scirun.test' },
+      addEventListener: (name, handler) => { handlers[name] = handler; },
+    },
+    caches: {
+      open: async () => cache,
+      match: async request => entries.get(typeof request === 'string' ? request : request.url) || null,
+    },
+    fetch: async () => { throw new Error('network unavailable'); },
+    URL,
+    Response: { error: () => ({ error: true }) },
+  };
+  vm.createContext(context);
+  vm.runInContext(source, context);
+  const request = { method: 'GET', url: 'https://scirun.test/index.html', mode: 'navigate' };
+  const dispatch = request => {
+    let response = null;
+    handlers.fetch({ request, respondWith: promise => { response = promise; } });
+    return response;
+  };
+
+  const freshResponse = { ok: true, version: 'fresh', clone: () => ({ version: 'cached-fresh' }) };
+  context.fetch = async () => freshResponse;
+  assert.equal(await dispatch(request), freshResponse);
+  assert.equal(entries.get(request.url).version, 'cached-fresh');
+
+  context.fetch = async () => { throw new Error('offline'); };
+  assert.equal(await dispatch(request), entries.get(request.url));
+
+  const offlineIndex = { version: 'offline-index' };
+  entries.set('./index.html', offlineIndex);
+  assert.equal(await dispatch({ method: 'GET', url: 'https://scirun.test/other-route', mode: 'navigate' }), offlineIndex);
+
+  const offlineAsset = await dispatch({ method: 'GET', url: 'https://scirun.test/missing.js', mode: 'no-cors' });
+  assert.equal(offlineAsset.error, true);
+
+  let postIntercepted = false;
+  handlers.fetch({ request: { method: 'POST', url: 'https://scirun.test/api', mode: 'cors' }, respondWith: () => { postIntercepted = true; } });
+  assert.equal(postIntercepted, false);
+});
