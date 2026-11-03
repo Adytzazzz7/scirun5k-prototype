@@ -609,3 +609,47 @@ test('startup preference reads tolerate inaccessible local storage', () => {
   assert.match(html, /const savedTheme=storageGet\('scirun\.theme'\)/);
   assert.match(html, /if\(!storageGet\('scirun\.theme'\)\)/);
 });
+
+test('abandon keeps the workout in memory when storage cleanup fails', () => {
+  const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  const helpers = html.match(/let storageFailureNotified=false;[\s\S]*?function clearPendingSession\(\)\{[^\r\n]*\}/)?.[0];
+  const abandonWorkout = html.match(/function abandonWorkout\(\)\{[^\r\n]*\}/)?.[0];
+  assert.ok(helpers);
+  assert.ok(abandonWorkout);
+  const active = { level: 1 };
+  const pending = { id: 'pending-3' };
+  function makeContext(failPending, failTimer) {
+    const notices = [];
+    let stopped = 0, shown = 0, rendered = 0;
+    const context = {
+      localStorage: { removeItem: key => { if (failTimer && key === 'scirun.activeTimer') throw new Error('storage unavailable'); } },
+      SciRunPendingSessionStore: { clear: () => failPending ? false : true },
+      TIMER_STORAGE_KEY: 'scirun.activeTimer', lang: 'en', storageFailureNotified: false,
+      currentTimer: active, pendingSession: pending, workoutMode: 'abandon-confirm', workoutReturnView: 'dashboard',
+      toast: message => notices.push(message), stopTimerInterval: () => { stopped++; },
+      showView: () => { shown++; }, renderAll: () => { rendered++; },
+    };
+    vm.createContext(context);
+    vm.runInContext(helpers + '\n' + abandonWorkout, context);
+    return { context, notices, stopped: () => stopped, shown: () => shown, rendered: () => rendered };
+  }
+  for (const failures of [[true, false], [false, true]]) {
+    const scenario = makeContext(...failures);
+    assert.equal(scenario.context.abandonWorkout(), false);
+    assert.equal(scenario.context.currentTimer, active);
+    assert.equal(scenario.context.pendingSession, pending);
+    assert.equal(scenario.context.workoutMode, 'abandon-confirm');
+    assert.equal(scenario.stopped(), 0);
+    assert.equal(scenario.shown(), 0);
+    assert.equal(scenario.rendered(), 0);
+    assert.equal(scenario.notices.length, 1);
+  }
+  const scenario = makeContext(false, false);
+  assert.equal(scenario.context.abandonWorkout(), true);
+  assert.equal(scenario.context.currentTimer, null);
+  assert.equal(scenario.context.pendingSession, null);
+  assert.equal(scenario.context.workoutMode, 'timer');
+  assert.equal(scenario.stopped(), 1);
+  assert.equal(scenario.shown(), 1);
+  assert.equal(scenario.rendered(), 1);
+});
