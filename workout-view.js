@@ -44,7 +44,7 @@ function renderWorkoutPage(){
  page.innerHTML='<div class=\"workout-page\">'+
   '<header class=\"workout-top\"><button type=\"button\" class=\"workout-back glass-control\" id=\"workoutBack\"><span aria-hidden=\"true\">←</span> '+workoutText('Înapoi','Back')+'</button>'+
   '<div class=\"workout-heading\"><p class=\"eyebrow\">'+stage.code+' · '+workoutText('ANTRENAMENT','WORKOUT')+'</p><h1 id=\"workoutViewTitle\" tabindex=\"-1\">'+stage.name[lang]+'</h1><p class=\"muted\">'+workoutText('Săptămâna ','Week ')+position.week+' · '+workoutText('Antrenamentul ','Workout ')+position.session+'</p></div></header>'+
-  '<div class=\"workout-content\"><div class=\"workout-ring\" id=\"workoutRing\" role=\"img\" aria-label=\"'+workoutText('Progresul intervalului','Interval progress')+'\"><div class=\"workout-ring-center\"><div class=\"workout-liquid\" aria-hidden=\"true\"><span class=\"liquid-wave liquid-wave-back\"></span><span class=\"liquid-wave liquid-wave-front\"></span></div><span class=\"workout-current\" id=\"currentInterval\" aria-live=\"polite\"></span><output class=\"workout-time\" id=\"timerBig\" aria-live=\"off\">00:00</output><span class=\"workout-timer-state\" id=\"timerState\"></span><span class=\"workout-recommended-speed\" id=\"recommendedSpeed\"></span><span class=\"phase-countdown hidden\" id=\"phaseCountdown\" aria-live=\"polite\"></span></div></div>'+
+  '<div class=\"workout-content\"><div class=\"workout-ring\" id=\"workoutRing\" role=\"img\" aria-label=\"'+workoutText('Progresul intervalului','Interval progress')+'\"><div class=\"workout-ring-center\"><div class=\"workout-liquid\" aria-hidden=\"true\"><span class=\"liquid-wave liquid-wave-back\"></span><span class=\"liquid-wave liquid-wave-front\"></span></div><span class=\"workout-current\" id=\"currentInterval\" aria-live=\"polite\"></span><output class=\"workout-time\" id=\"timerBig\" aria-live=\"off\">00:00</output><span class=\"workout-timer-state\" id=\"timerState\"></span><span class=\"workout-recommended-speed\" id=\"recommendedSpeed\"></span></div><span class=\"phase-countdown hidden\" id=\"phaseCountdown\" aria-live=\"polite\"></span></div>'+
   '<div class=\"workout-rounds\"><div class=\"workout-round-label\"><span>'+workoutText('Progresul rundelor','Round progress')+'</span><strong id=\"roundCount\">0 / 0</strong></div><div class=\"progressline\"><span id=\"roundBar\"></span></div></div>'+
   '<div class=\"workout-next glass-panel\"><div><span class=\"eyebrow\">'+workoutText('URMĂTORUL INTERVAL','UP NEXT')+'</span><strong id=\"nextInterval\">—</strong></div><div class=\"workout-total\"><span>'+workoutText('Timp','Time')+'</span><strong id=\"elapsedTotal\">00:00 / 00:00</strong></div></div>'+
   '<p class=\"workout-note muted\">'+t('timerNote')+'</p></div>'+
@@ -81,7 +81,7 @@ function updateWorkoutPage(){
  $('timerState').textContent=currentTimer.paused?workoutText('ÎN PAUZĂ','PAUSED'):workoutText('ÎN DESFĂȘURARE','IN PROGRESS');
  const speed=Number.isFinite(Number(seg.speed))?Number(seg.speed):(seg.type==='run'?Number(state.profile?.runSpeed):Number(state.profile?.walkSpeed));
  const speedOutput=$('recommendedSpeed');
- if(speedOutput)speedOutput.textContent=speed>0?workoutText('VITEZĂ SUGERATĂ · ','SUGGESTED SPEED · ')+speed.toFixed(1)+' km/h':'';
+ if(speedOutput)speedOutput.textContent=speed>0?workoutText('VITEZĂ SUGERATĂ\n','SUGGESTED SPEED\n')+speed.toFixed(1)+' km/h':'';
  const countdown=$('phaseCountdown');
  if(countdown){
    const seconds=Math.ceil(remaining);
