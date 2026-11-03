@@ -64,7 +64,7 @@ function renderFeedbackDiscardConfirmation(page){
 function renderWorkoutFeedbackPage(page){
  const position={week:pendingSession.week||workoutPosition().week,session:pendingSession.sessionNumber||workoutPosition().session};
  const stage=STAGES[pendingSession.level];
- const firstSession=state.profile.firstSessionFeedbackDone!==true;
+ const firstSession=state.profile.firstSessionFeedbackDone!==true&&Number(state.profile.runSpeed)>0&&Number(state.profile.walkSpeed)>0;
  const complete=pendingSession.completedNaturally===true;
  const options=[['veryEasy',t('effortVeryEasy')],['easy',t('effortEasy')],['moderate',t('effortModerate')],['hard',t('effortHard')],['exhausted',t('effortExhausted')]];
  const efforts=options.map(function(item){return '<button type="button" class="effort-choice '+(selectedEffort===item[0]?'selected':'')+'" data-effort="'+item[0]+'" aria-pressed="'+String(selectedEffort===item[0])+'">'+item[1]+'</button>';}).join('');

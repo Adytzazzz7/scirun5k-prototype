@@ -603,9 +603,10 @@
       return;
     }
     const completedFully = pendingSession.completedNaturally === true;
-    const runFeel = state.profile.firstSessionFeedbackDone !== true ? $('runPaceFeel')?.value || '' : '';
-    const walkFeel = state.profile.firstSessionFeedbackDone !== true ? $('walkPaceFeel')?.value || '' : '';
-    if (state.profile.firstSessionFeedbackDone !== true && (!runFeel || !walkFeel)) {
+    const needsSpeedFeedback = state.profile.firstSessionFeedbackDone !== true && Number(state.profile.runSpeed) > 0 && Number(state.profile.walkSpeed) > 0;
+    const runFeel = needsSpeedFeedback ? $('runPaceFeel')?.value || '' : '';
+    const walkFeel = needsSpeedFeedback ? $('walkPaceFeel')?.value || '' : '';
+    if (needsSpeedFeedback && (!runFeel || !walkFeel)) {
       $('feedbackError').textContent = txt('Răspunde și la cele două întrebări despre viteza benzii.', 'Answer both treadmill speed questions as well.');
       return;
     }
@@ -622,17 +623,17 @@
       if (effort === 'exhausted') {
         state.level = Math.max(0, state.level - 1); state.reduceNext = true;
         state.easyStreak = 0; state.moderateStreak = 0; state.hardStreak = 0;
-        state.profile.runSpeed = Math.max(3, Math.round((Number(state.profile.runSpeed) - 0.3) * 10) / 10);
+        if (Number(state.profile.runSpeed) > 0) state.profile.runSpeed = Math.max(3, Math.round((Number(state.profile.runSpeed) - 0.3) * 10) / 10);
         note = t('exhaustedStep');
       } else if (effort === 'hard') {
         state.reduceNext = true; state.easyStreak = 0; state.moderateStreak = 0;
         state.hardStreak = (state.hardStreak || 0) + 1;
-        state.profile.runSpeed = Math.max(3, Math.round((Number(state.profile.runSpeed) - 0.2) * 10) / 10);
+        if (Number(state.profile.runSpeed) > 0) state.profile.runSpeed = Math.max(3, Math.round((Number(state.profile.runSpeed) - 0.2) * 10) / 10);
         note = t('reduceStep');
         if (state.hardStreak >= 2) { state.level = Math.max(0, state.level - 1); state.hardStreak = 0; }
       } else if (effort === 'veryEasy' || effort === 'easy') {
         state.easyStreak = (state.easyStreak || 0) + 1; state.moderateStreak = 0; state.hardStreak = 0;
-        state.profile.runSpeed = Math.min(16, Math.round((Number(state.profile.runSpeed) + 0.1) * 10) / 10);
+        if (Number(state.profile.runSpeed) > 0) state.profile.runSpeed = Math.min(16, Math.round((Number(state.profile.runSpeed) + 0.1) * 10) / 10);
         if (state.easyStreak >= 2 && state.level < STAGES.length - 1) {
           state.level++; state.easyStreak = 0; note = t('nextStepEasy');
         } else note = t('repeatStep');
@@ -643,7 +644,7 @@
         } else note = t('repeatStep');
       }
     }
-    state.profile.walkSpeed = Math.min(Number(state.profile.walkSpeed), Number(state.profile.runSpeed));
+    if (Number(state.profile.walkSpeed) > 0 && Number(state.profile.runSpeed) > 0) state.profile.walkSpeed = Math.min(Number(state.profile.walkSpeed), Number(state.profile.runSpeed));
     const scheduledDate = pendingSession.scheduledDate || dateKey(experienceNextDate());
     state.history.push({
       id: pendingSession.id || Date.now(), date: scheduledDate,

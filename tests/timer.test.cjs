@@ -1032,3 +1032,26 @@ test('workout renders share one wake lock and late requests release after leavin
   context.showView('workout');
   assert.equal(requests,2);
 });
+
+
+test('legacy pending workouts remain reportable before treadmill speeds have been calibrated', () => {
+  const fields={actualDistance:{value:'2.10'},goalContinuous:{checked:false},feedbackError:{textContent:''}};
+  const context=experienceContext({
+    $:id=>fields[id],saveState:()=>true,clearPendingSession:()=>true,closeModal:()=>{},toast:()=>{},
+    storageFailureText:()=> 'storage full'
+  });
+  context.state.profile.runSpeed=null;
+  context.state.profile.walkSpeed=null;
+  context.state.profile.firstSessionFeedbackDone=false;
+  context.selectedEffort='easy';
+  context.pendingSession={id:'legacy-done',level:0,completedNaturally:true,completion:1,
+    elapsed:1000,week:1,scheduledDate:'2026-11-03'};
+  context.renderAll=()=>{};
+  context.showView=()=>{};
+  context.saveFeedback();
+  assert.equal(fields.feedbackError.textContent,'');
+  assert.equal(context.state.history.length,1);
+  assert.equal(context.state.profile.runSpeed,null);
+  assert.equal(context.state.profile.walkSpeed,null);
+  assert.equal(context.state.profile.firstSessionFeedbackDone,false);
+});
