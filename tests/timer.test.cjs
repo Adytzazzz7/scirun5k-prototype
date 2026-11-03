@@ -211,8 +211,10 @@ test('all inline application scripts parse as JavaScript', () => {
 test('reset clears the active timer and pending session before returning to onboarding', () => {
   const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
   const storeSource = fs.readFileSync(path.join(root, 'pending-session-store.js'), 'utf8');
+  const storageHelpers = html.match(/let storageFailureNotified=false;[\s\S]*?function clearPendingSession\(\)\{[^\r\n]*\}/)?.[0];
   const persistTimer = html.match(/function persistTimer\(\)\{[^\r\n]*\}/)?.[0];
   const resetApp = html.match(/function resetApp\(\){[^\r\n]*\}/)?.[0];
+  assert.ok(storageHelpers);
   assert.ok(persistTimer);
   assert.ok(resetApp);
 
@@ -244,6 +246,7 @@ test('reset clears the active timer and pending session before returning to onbo
   };
   vm.createContext(context);
   vm.runInContext(storeSource, context);
+  vm.runInContext(storageHelpers, context);
   vm.runInContext(persistTimer, context);
   vm.runInContext(resetApp, context);
   context.resetApp();
@@ -260,7 +263,9 @@ test('reset clears the active timer and pending session before returning to onbo
 test('timer restoration discards invalid snapshots and still resumes a valid timer', () => {
   const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
   const timerSource = fs.readFileSync(path.join(root, 'timer-core.js'), 'utf8');
+  const storageHelpers = html.match(/let storageFailureNotified=false;[\s\S]*?function clearPendingSession\(\)\{[^\r\n]*\}/)?.[0];
   const restoreTimer = html.match(/function restoreTimer\(\){[^\r\n]*\}/)?.[0];
+  assert.ok(storageHelpers);
   assert.ok(restoreTimer);
 
   function runRestore(rawTimer, hasProfile = true) {
@@ -286,6 +291,7 @@ test('timer restoration discards invalid snapshots and still resumes a valid tim
     };
     vm.createContext(context);
     vm.runInContext(timerSource, context);
+    vm.runInContext(storageHelpers, context);
     vm.runInContext(restoreTimer, context);
     context.restoreTimer();
     return { context, values, notices, rendered: () => rendered, intervalDelay: () => intervalDelay };
