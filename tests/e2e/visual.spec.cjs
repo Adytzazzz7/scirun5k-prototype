@@ -9,6 +9,7 @@ test('dashboard fits desktop and mobile in both themes', async ({ page }) => {
   await page.clock.fastForward(5_000);
   const checkWidth = async () => {
     const size = await page.evaluate(() => ({ viewport: window.innerWidth, content: document.documentElement.scrollWidth }));
+    if (size.content > size.viewport + 1) console.log('Overflowing elements', await page.evaluate(() => [...document.querySelectorAll('body *')].map(el => ({id:el.id,className:el.className,right:el.getBoundingClientRect().right})).filter(el => el.right > innerWidth + 1).slice(0,12)));
     expect(size.content).toBeLessThanOrEqual(size.viewport + 1);
     const nav = await page.locator('#nav').boundingBox();
     expect(nav.x).toBeGreaterThanOrEqual(0);
