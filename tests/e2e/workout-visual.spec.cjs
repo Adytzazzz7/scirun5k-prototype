@@ -6,6 +6,7 @@ test('liquid ring anticipates phase changes and controls use their action colors
   await page.emulateMedia({ reducedMotion: 'no-preference' });
   await page.setViewportSize({ width:390, height:844 });
   await page.clock.install({ time: new Date('2026-11-03T09:00:00Z') });
+  await page.clock.pauseAt(new Date('2026-11-03T09:00:01Z'));
   const errors=[],dialogs=[];
   page.on('pageerror',error=>errors.push(error.message));
   page.on('dialog',async dialog=>{dialogs.push(dialog.message());await dialog.dismiss();});
@@ -16,7 +17,7 @@ test('liquid ring anticipates phase changes and controls use their action colors
   await expect(ring).toHaveCSS('--phase-color','rgb(88, 230, 199)');
   await expect(page.locator('#workoutPause')).toHaveCSS('background-color','rgb(243, 196, 86)');
   await expect(page.locator('#workoutSkip')).toHaveCSS('background-color','rgb(88, 230, 199)');
-  await expect(page.locator('#workoutFinish')).toHaveCSS('background-color','rgb(210, 50, 72)');
+  await expect(page.locator('#workoutFinish')).toHaveCSS('background-color','rgb(205, 48, 69)');
   await expect(wave).toHaveCSS('animation-name','liquid-tide');
 
   await page.locator('#workoutSkip').click();

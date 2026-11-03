@@ -420,7 +420,7 @@ html[data-theme="light"] #planReason { color:#617086; }
 .workout-ring[data-paused="true"] .liquid-wave { animation-play-state:paused; }
 #workoutPause { background:#f3c456; color:#302309; border:1px solid #e8b63c; }
 #workoutSkip { background:#58e6c7; color:#04231e; border:1px solid #58e6c7; }
-#workoutFinish { background:#d23248; color:#fff; border:1px solid #d23248; }
+#workoutFinish { background:#cd3045; color:#fff; border:1px solid #cd3045; }
 #workoutPause:hover,#workoutSkip:hover,#workoutFinish:hover { filter:brightness(1.06); }
 @keyframes liquid-tide {
   0% { transform:rotate(0deg) translateY(0); }
