@@ -14,6 +14,9 @@ test('saves completed workout feedback, advances the plan, and restores history 
   await page.locator('#safetyAck').check();
   await page.locator('#createPlan').click();
   await expect(page.locator('#dashboard')).toHaveClass(/active/);
+  const initialState = await page.evaluate(() => JSON.parse(localStorage.getItem('scirun.state')));
+  const startingLevel = initialState.level;
+  expect(initialState.easyStreak).toBe(0);
 
   for (let sessionNumber = 1; sessionNumber <= 2; sessionNumber += 1) {
     await page.locator('#startWorkout').click();
@@ -43,7 +46,7 @@ test('saves completed workout feedback, advances the plan, and restores history 
     activeTimer: localStorage.getItem('scirun.activeTimer'),
     pendingSession: localStorage.getItem('scirun.pendingSession'),
   }));
-  expect(completedState.state.level).toBe(1);
+  expect(completedState.state.level).toBe(startingLevel + 1);
   expect(completedState.state.easyStreak).toBe(0);
   expect(completedState.state.history).toHaveLength(2);
   expect(completedState.activeTimer).toBeNull();
@@ -52,7 +55,7 @@ test('saves completed workout feedback, advances the plan, and restores history 
   await page.reload();
   await expect(page.locator('#dashboard')).toHaveClass(/active/);
   const restoredState = await page.evaluate(() => JSON.parse(localStorage.getItem('scirun.state')));
-  expect(restoredState.level).toBe(1);
+  expect(restoredState.level).toBe(startingLevel + 1);
   expect(restoredState.history).toHaveLength(2);
   expect(restoredState.history.every(session => session.status === 'done')).toBe(true);
   expect(pageErrors).toEqual([]);
