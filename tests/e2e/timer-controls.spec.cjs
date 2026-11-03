@@ -49,6 +49,5 @@ test('skips a segment, keeps the workout when abandonment is cancelled, and disc
   await expect(page.locator('#dashboard')).toHaveClass(/active/);
   const restoredState = await page.evaluate(() => JSON.parse(localStorage.getItem('scirun.state')));
   expect(restoredState.history).toHaveLength(0);
-  expect(localStorage).toBeDefined();
   expect(pageErrors).toEqual([]);
 });
