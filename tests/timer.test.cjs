@@ -1097,3 +1097,23 @@ test('pause and recovery use mint without urgency, and the final phase has no fa
   assert.equal(final.mix,0);
   assert.equal(final.imminent,false);
 });
+
+
+test('session progress includes warm-up, running, walking and cool-down stages', () => {
+  const viewContext={};
+  vm.createContext(viewContext);
+  vm.runInContext(fs.readFileSync(path.join(root,'workout-view.js'),'utf8'),viewContext);
+  const progress=viewContext.workoutSessionProgress;
+  const segments=[{type:'warmup',seconds:10},{type:'run',seconds:20},{type:'walk',seconds:5},{type:'cooldown',seconds:10}];
+  assert.deepEqual({...progress(segments,0,10)},{total:4,current:1,completed:0,within:0,value:0,percent:0});
+  assert.equal(progress(segments,0,5).percent,12.5);
+  assert.equal(progress(segments,1,10).percent,37.5);
+  const walking=progress(segments,2,1);
+  assert.equal(walking.current,3);
+  assert.equal(walking.total,4);
+  assert.equal(walking.percent,70);
+  const final=progress(segments,3,0);
+  assert.equal(final.current,4);
+  assert.equal(final.percent,100);
+  assert.equal(progress([],0,0).percent,0);
+});

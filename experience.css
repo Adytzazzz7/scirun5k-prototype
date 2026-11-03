@@ -474,3 +474,38 @@ html[data-theme="light"] .phase-countdown { color:#805200; background:rgba(225,1
 @media(max-width:360px) {
   .workout-ring { width:min(36vh,218px); }
 }
+
+
+/* One compact workout heading and progress through every scheduled phase. */
+.workout-heading h1 { font-size:clamp(1.1rem,3.9vw,1.45rem); line-height:1.25; letter-spacing:-.025em; }
+.workout-heading #timerState { margin:8px 0 0; font-size:.72rem; color:#58e6c7; }
+.workout-heading #timerState[data-paused="true"] { color:#f3c456; }
+html[data-theme="light"] .workout-heading #timerState { color:#087f69; }
+html[data-theme="light"] .workout-heading #timerState[data-paused="true"] { color:#805200; }
+.workout-round-label strong { white-space:nowrap; }
+.session-progress {
+  display:grid;
+  grid-template-columns:repeat(var(--stage-count),minmax(0,1fr));
+  gap:5px;
+  width:100%;
+  padding:2px 0;
+}
+.session-progress-step {
+  position:relative;
+  display:block;
+  min-width:0;
+  height:12px;
+  overflow:hidden;
+  border:1px solid rgba(153,168,189,.25);
+  border-radius:999px;
+  background:rgba(153,168,189,.13);
+}
+.session-progress-fill { display:block; height:100%; width:0; background:var(--stage-color); border-radius:inherit; }
+.session-progress-step[data-status="current"] { border-color:var(--stage-color); box-shadow:0 0 0 1px var(--stage-color); }
+.session-progress-step[data-status="complete"] { border-color:var(--stage-color); }
+.session-progress-step[data-status="upcoming"] { opacity:.6; }
+.session-progress-legend { display:flex; flex-wrap:wrap; gap:5px 13px; margin-top:9px; color:var(--muted); font-size:.64rem; }
+.session-progress-legend > span { display:inline-flex; align-items:center; gap:5px; }
+.session-progress-legend i { width:6px; height:6px; border-radius:50%; flex:none; }
+html[data-theme="light"] .session-progress-step { background:rgba(80,98,120,.1); border-color:rgba(80,98,120,.25); }
+html[data-theme="light"] .session-progress-step[data-status="current"] { border-color:var(--stage-color); }
