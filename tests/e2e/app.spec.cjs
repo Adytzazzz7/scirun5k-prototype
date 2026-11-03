@@ -40,6 +40,8 @@ test('creates a profile, restores a paused workout, and resets local data', asyn
   expect(resumedTimer.paused).toBe(false);
   console.log('E2E checkpoint: workout resumed');
 
+  await page.locator('#workoutBack').click();
+  await expect(page.locator('#dashboard')).toHaveClass(/active/);
   await page.locator('#nav-profile').click();
   await expect(page.locator('#profile')).toHaveClass(/active/);
   console.log('E2E checkpoint: profile view opened');
