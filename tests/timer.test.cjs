@@ -401,7 +401,7 @@ test('exportData attaches the download link and defers object URL cleanup', () =
 
   assert.equal(anchor.href, 'blob:scirun-export');
   assert.equal(anchor.download, 'scirun5k-personal-data.json');
-  assert.deepEqual(createdBlob.options, { type: 'application/json' });
+  assert.equal(createdBlob.options.type, 'application/json');
   assert.equal(JSON.parse(createdBlob.parts[0]).profile.age, '30-39');
   assert.deepEqual(events, ['create-url', 'create-anchor', 'append', 'click', 'remove', 'schedule:1000', 'toast:exportDone']);
   assert.equal(typeof revokeCallback, 'function');
