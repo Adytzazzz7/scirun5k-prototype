@@ -477,7 +477,7 @@ html[data-theme="light"] .phase-countdown { color:#805200; background:rgba(225,1
 
 
 /* One compact workout heading and progress through every scheduled phase. */
-.workout-session-heading h1 { color:var(--text); font-size:clamp(1.1rem,3.9vw,1.45rem); line-height:1.25; letter-spacing:-.025em; }
+.workout-session-heading h1 { color:var(--text); transition:none; font-size:clamp(1.1rem,3.9vw,1.45rem); line-height:1.25; letter-spacing:-.025em; }
 .workout-heading #timerState { margin:8px 0 0; font-size:.72rem; color:#58e6c7; }
 .workout-heading #timerState[data-paused="true"] { color:#f3c456; }
 html[data-theme="light"] .workout-heading #timerState { color:#087f69; }
@@ -500,7 +500,7 @@ html[data-theme="light"] .workout-heading #timerState[data-paused="true"] { colo
   border-radius:999px;
   background:rgba(153,168,189,.13);
 }
-.session-progress-fill { position:absolute; inset:0 auto 0 0; display:block; width:0; background:var(--stage-color); border-radius:inherit; }
+.session-progress-fill { transition:none; position:absolute; inset:0 auto 0 0; display:block; width:0; background:var(--stage-color); border-radius:inherit; }
 .session-progress-step[data-status="current"] { border-color:var(--stage-color); box-shadow:0 0 0 1px var(--stage-color); }
 .session-progress-step[data-status="complete"] { border-color:var(--stage-color); }
 .session-progress-step[data-status="upcoming"] { opacity:.6; }

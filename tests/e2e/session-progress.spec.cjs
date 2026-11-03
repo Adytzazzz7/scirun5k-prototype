@@ -51,9 +51,8 @@ test('workout heading is compact and progress covers every session stage', async
   await expect(page.locator('#workoutViewTitle')).toHaveText('Săptămâna 1 · Antrenamentul 1');
   await expect(page.locator('#workoutViewTitle')).toBeInViewport();
   await expect(page.locator('#workoutViewTitle')).toHaveCSS('color','rgb(241, 243, 247)');
-  console.log('Restored heading',await page.locator('#workoutViewTitle').evaluate(el=>{const s=getComputedStyle(el);return {text:el.textContent,html:el.outerHTML,rect:el.getBoundingClientRect().toJSON(),color:s.color,opacity:s.opacity,visibility:s.visibility,font:s.font,textFill:s.webkitTextFillColor,clip:s.clipPath};}));
   await page.clock.runFor(100);
-  await page.screenshot({path:'test-results/session-heading-progress.png',fullPage:true});
+  await page.screenshot({path:'test-results/session-heading-progress.png',fullPage:false});
 
   await page.evaluate(()=>localStorage.setItem('scirun.lang','en'));
   await page.reload();
@@ -69,6 +68,6 @@ test('workout heading is compact and progress covers every session stage', async
   await expect(page.locator('#roundBar [data-stage-index="'+(total-1)+'"]')).toHaveAttribute('data-phase','cooldown');
   await expect(page.locator('#roundBar [data-stage-index="'+(total-1)+'"]')).toHaveAttribute('data-status','current');
   await expect(page.locator('#roundBar [data-status="complete"]')).toHaveCount(total-1);
-  await page.screenshot({path:'test-results/session-progress-cooldown.png',fullPage:true});
+  await page.screenshot({path:'test-results/session-progress-cooldown.png',fullPage:false});
   expect(errors).toEqual([]);
 });
