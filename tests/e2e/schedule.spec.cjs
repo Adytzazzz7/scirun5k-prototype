@@ -27,3 +27,19 @@ test('changes weekly frequency and moves a workout past unavailable dates', asyn
   await expect(page.locator('#unavailableList')).toContainText('3 nov.');
   await expect(page.locator('#goalDate')).not.toHaveText(estimateBefore);
 });
+
+
+test('automatically reprograms a missed workout and reports the new day', async ({ page }) => {
+  await page.clock.install({ time: new Date('2026-11-03T09:00:00Z') });
+  await createProfile(page);
+  const initial = await page.evaluate(() => JSON.parse(localStorage.getItem('scirun.state')));
+  expect(initial.nextSessionDate).toBe('2026-11-04');
+  await page.clock.fastForward(2 * 24 * 60 * 60 * 1000);
+  await page.reload();
+  await expect(page.locator('#dashboard')).toHaveClass(/active/);
+  await expect(page.locator('#toast')).toContainText('Sesiunea a fost reprogramată pentru');
+  const moved = await page.evaluate(() => JSON.parse(localStorage.getItem('scirun.state')));
+  expect(moved.nextSessionDate).toBe('2026-11-06');
+  expect(moved.history).toHaveLength(0);
+  expect(moved.level).toBe(initial.level);
+});

@@ -106,6 +106,7 @@
         || saved.blackoutDates.some(d => !isDateKey(d))) throw invalidBackup();
       blackoutDates = [...new Set(saved.blackoutDates)];
     }
+    if (saved.nextSessionDate !== undefined && !isDateKey(saved.nextSessionDate)) throw invalidBackup();
     if (saved.goalDate !== undefined && !isDateKey(saved.goalDate)) throw invalidBackup();
     if (saved.achievementDistance !== undefined
       && (!Number.isFinite(saved.achievementDistance) || saved.achievementDistance < 5 || saved.achievementDistance > 100)) throw invalidBackup();
@@ -114,6 +115,7 @@
       easyStreak: counter('easyStreak'), moderateStreak: counter('moderateStreak'),
       hardStreak: counter('hardStreak'), reduceNext: flag('reduceNext'),
       goalReached: flag('goalReached'),
+      ...(saved.nextSessionDate ? { nextSessionDate: saved.nextSessionDate } : {}),
       ...(saved.goalDate ? { goalDate: saved.goalDate } : {}),
       ...(saved.achievementDistance !== undefined ? { achievementDistance: saved.achievementDistance } : {}),
       ...(typeof saved.lastPlanReason === 'string' ? { lastPlanReason: saved.lastPlanReason.slice(0, 300) } : {})

@@ -127,6 +127,7 @@
     else if (startingLevel > state.level) state.level = Math.min(startingLevel, state.level + 1);
     if (state.level !== previous.level) { state.easyStreak = 0; state.moderateStreak = 0; state.hardStreak = 0; state.reduceNext = false; state.lastPlanReason = txt('Plan actualizat după nivelul de alergare raportat.', 'Plan updated from your reported running capacity.'); }
     state.blackoutDates = Array.isArray(state.blackoutDates) ? state.blackoutDates : [];
+    state.nextSessionDate = dateKey(experienceNextDate());
     if (!saveState()) {
       state = previous;
       $('scheduleError').textContent = storageFailureText();
@@ -373,6 +374,7 @@
     state.profile.sessionsPerWeek = frequency;
     state.profile.trainingDays = days;
     const next = experienceNextDate();
+    state.nextSessionDate = dateKey(next);
     if (!saveState()) { state = JSON.parse(snapshot); renderAll(); msg.textContent = storageFailureText(); return; }
     msg.classList.remove('form-error');
     msg.textContent = txt('Program actualizat. Estimarea datei pentru 5 km a fost recalculată.', 'Schedule updated. The estimated 5 km date has been recalculated.');
@@ -397,6 +399,7 @@
       if (!days.includes(key)) days.push(key);
     }
     state.blackoutDates = days.sort();
+    state.nextSessionDate = dateKey(experienceNextDate());
     if (!saveState()) { state = JSON.parse(snapshot); renderAll(); $('scheduleSaveMessage').textContent = storageFailureText(); return; }
     const next = experienceNextDate();
     renderAll();
@@ -661,6 +664,7 @@
       note = txt('Felicitări! Ai alergat 5 km continuu.', 'Congratulations! You ran 5 km continuously.');
     }
     state.lastPlanReason = note;
+    state.nextSessionDate = dateKey(experienceNextDate());
     if (!saveState()) {
       state = JSON.parse(snapshot);
       $('feedbackError').textContent = storageFailureText();
@@ -715,7 +719,7 @@
     $('setupFrequency')?.addEventListener('change', experienceStrings);
     $('saveSchedule').onclick = saveScheduleSettings;
     $('addUnavailable').onclick = addUnavailableRange;
-    $('clearUnavailable').onclick = () => { const previous = state.blackoutDates; state.blackoutDates = []; if (!saveState()) { state.blackoutDates = previous; return; } renderAll(); };
+    $('clearUnavailable').onclick = () => { const previous = state.blackoutDates, previousNext = state.nextSessionDate; state.blackoutDates = []; state.nextSessionDate = dateKey(experienceNextDate()); if (!saveState()) { state.blackoutDates = previous; state.nextSessionDate = previousNext; return; } renderAll(); };
     $('editScheduleShortcut').onclick = () => { showView('settings'); $('settingFrequency').scrollIntoView({ behavior: 'smooth', block: 'center' }); };
     $('soundPreference').onchange = () => {
       soundEnabled = $('soundPreference').checked;
@@ -776,6 +780,17 @@
     if (currentTimer && state.profile?.safetyAnswer === 'no') { stopTimerInterval(); showView('workout'); renderWorkoutPage(); timerInterval = setInterval(tickTimer, 250); }
     else if (currentTimer) { currentTimer.paused = true; persistTimer(); showView('onboarding'); }
     else if (pendingSession) { showWorkoutFeedback(); }
+    if (state.profile?.safetyAnswer === 'no' && !currentTimer && !pendingSession) {
+      const next = experienceNextDate();
+      const previous = state.nextSessionDate;
+      state.nextSessionDate = dateKey(next);
+      if (previous !== state.nextSessionDate) {
+        saveState();
+        if (previous && previous < dateKey(localDay(new Date())) && !state.history.some(s => s.date === previous)) {
+          toast(txt('Sesiunea a fost reprogramată pentru ' + weekdayName(next.getDay(), false) + '.', 'The workout has been rescheduled for ' + weekdayName(next.getDay(), false) + '.'));
+        }
+      }
+    }
   }
 
   window.addEventListener('load', initExperience, { once: true });
