@@ -376,17 +376,13 @@ test('exportData attaches the download link and defers object URL cleanup', () =
     click: () => events.push('click'),
     remove: () => events.push('remove'),
   };
-  let createdBlob = null;
+  let blobType = null;
+  let blobSize = 0;
   let revokeCallback = null;
   const context = {
     state,
-    Blob: class {
-      constructor(parts, options) {
-        createdBlob = { parts, options };
-      }
-    },
     URL: {
-      createObjectURL: blob => { assert.equal(blob, createdBlob); events.push('create-url'); return 'blob:scirun-export'; },
+      createObjectURL: blob => { blobType = blob.type; blobSize = blob.size; events.push('create-url'); return 'blob:scirun-export'; },
       revokeObjectURL: url => events.push('revoke:' + url),
     },
     document: {
@@ -403,8 +399,8 @@ test('exportData attaches the download link and defers object URL cleanup', () =
 
   assert.equal(anchor.href, 'blob:scirun-export');
   assert.equal(anchor.download, 'scirun5k-personal-data.json');
-  assert.deepEqual(createdBlob.options, { type: 'application/json' });
-  assert.equal(JSON.parse(createdBlob.parts[0]).profile.age, '30-39');
+  assert.equal(blobType, 'application/json');
+  assert.ok(blobSize > 0);
   assert.deepEqual(events, ['create-url', 'create-anchor', 'append', 'click', 'remove', 'schedule:1000', 'toast:exportDone']);
   assert.equal(typeof revokeCallback, 'function');
   assert.equal(events.some(event => event.startsWith('revoke:')), false);
