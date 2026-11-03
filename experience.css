@@ -500,7 +500,7 @@ html[data-theme="light"] .workout-heading #timerState[data-paused="true"] { colo
   border-radius:999px;
   background:rgba(153,168,189,.13);
 }
-.session-progress-fill { display:block; height:100%; width:0; background:var(--stage-color); border-radius:inherit; }
+.session-progress-fill { position:absolute; inset:0 auto 0 0; display:block; width:0; background:var(--stage-color); border-radius:inherit; }
 .session-progress-step[data-status="current"] { border-color:var(--stage-color); box-shadow:0 0 0 1px var(--stage-color); }
 .session-progress-step[data-status="complete"] { border-color:var(--stage-color); }
 .session-progress-step[data-status="upcoming"] { opacity:.6; }
