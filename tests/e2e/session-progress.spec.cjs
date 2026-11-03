@@ -47,6 +47,9 @@ test('workout heading is compact and progress covers every session stage', async
   await expect(page.locator('.workout-heading #timerState')).toHaveText('ÎN PAUZĂ');
   await expect(page.locator('#roundCount')).toHaveText('Etapa 3 / '+total);
   await expect(page.locator('#roundBar')).toHaveAttribute('aria-valuenow','2.5');
+  await expect(page.locator('#workoutViewTitle')).toBeVisible();
+  await expect(page.locator('#workoutViewTitle')).toHaveText('Săptămâna 1 · Antrenamentul 1');
+  await page.clock.runFor(100);
   await page.screenshot({path:'test-results/session-heading-progress.png',fullPage:true});
 
   await page.evaluate(()=>localStorage.setItem('scirun.lang','en'));
