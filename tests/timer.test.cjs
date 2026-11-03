@@ -277,6 +277,7 @@ test('timer restoration discards invalid snapshots and still resumes a valid tim
     const context = {
       STAGES: Array.from({ length: 15 }, () => ({})),
       state: { profile: hasProfile ? {} : null, history: [] },
+      stateStorageReadFailed: false,
       TIMER_STORAGE_KEY: 'scirun.activeTimer',
       localStorage: {
         getItem: key => values.get(key) ?? null,
@@ -480,6 +481,7 @@ test('local storage quota errors are reported without throwing from state and ti
   const notices = [];
   const context = {
     lang: 'ro',
+    stateStorageReadFailed: false,
     state: { profile: null, level: 0, history: [] },
     TIMER_STORAGE_KEY: 'scirun.activeTimer',
     currentTimer: { level: 0 },
@@ -654,4 +656,54 @@ test('abandon keeps the workout in memory when storage cleanup fails', () => {
   assert.equal(scenario.shown(), 1);
   assert.equal(scenario.rendered(), 1);
   assert.equal(scenario.pendingClearCalls(), 1);
+});
+
+test('state read failures preserve saved sessions and block overwriting until a successful read', () => {
+  const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  const loadState = html.match(/function loadState\(\)\{[^\r\n]*\}/)?.[0];
+  const saveState = html.match(/function saveState\(\)\{[^\r\n]*\}/)?.[0];
+  const restorePendingSession = html.match(/function restorePendingSession\(\)\{[^\r\n]*\}/)?.[0];
+  const restoreTimer = html.match(/function restoreTimer\(\)\{[^\r\n]*\}/)?.[0];
+  assert.ok(loadState);
+  assert.ok(saveState);
+  assert.ok(restorePendingSession);
+  assert.ok(restoreTimer);
+  assert.match(html, /let stateStorageReadFailed=false;\s+let state = loadState\(\);/);
+
+  let reads = 0, writes = 0, pendingLoads = 0, pendingClears = 0, removals = 0, notices = 0;
+  const context = {
+    stateStorageReadFailed: false,
+    state: {},
+    TIMER_STORAGE_KEY: 'scirun.activeTimer',
+    localStorage: {
+      getItem: () => { reads++; throw new Error('storage unavailable'); },
+    },
+    storageSet: () => { writes++; return true; },
+    storageRemove: () => { removals++; return true; },
+    notifyStorageFailure: () => { notices++; },
+    SciRunPendingSessionStore: { load: () => { pendingLoads++; return { id: 'pending-preserved' }; } },
+    clearPendingSession: () => { pendingClears++; return true; },
+    showWorkoutFeedback: () => {},
+    toast: () => {},
+  };
+  vm.createContext(context);
+  vm.runInContext(loadState + '\n' + saveState + '\n' + restorePendingSession + '\n' + restoreTimer, context);
+
+  assert.equal(context.loadState().profile, null);
+  assert.equal(context.stateStorageReadFailed, true);
+  assert.equal(context.saveState(), false);
+  assert.equal(context.restorePendingSession(), false);
+  context.restoreTimer();
+  assert.equal(reads, 1);
+  assert.equal(writes, 0);
+  assert.equal(pendingLoads, 0);
+  assert.equal(pendingClears, 0);
+  assert.equal(removals, 0);
+  assert.ok(notices > 0);
+
+  context.localStorage.getItem = () => null;
+  assert.equal(context.loadState().profile, null);
+  assert.equal(context.stateStorageReadFailed, false);
+  assert.equal(context.saveState(), true);
+  assert.equal(writes, 1);
 });
