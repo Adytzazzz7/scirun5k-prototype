@@ -1,0 +1,12 @@
+{
+  "name": "scirun5k-prototype",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "test": "node --test tests/timer.test.cjs",
+    "test:e2e": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.1"
+  }
+}

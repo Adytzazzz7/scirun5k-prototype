@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   tests:
-    name: Node.js tests
+    name: Node.js and browser tests
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
@@ -20,5 +20,11 @@ jobs:
         uses: actions/setup-node@v7
         with:
           node-version: 22
-      - name: Run tests
-        run: node --test tests/timer.test.cjs
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Run unit tests
+        run: npm test
+      - name: Run browser tests
+        run: npm run test:e2e
