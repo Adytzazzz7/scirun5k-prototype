@@ -112,7 +112,7 @@ test('PWA manifest and precache refer to existing root-level icons and timer cod
     assert.equal(fs.existsSync(path.join(root, icon.src.replace(/^\.\//, ''))), true, icon.src);
   }
   const worker = fs.readFileSync(path.join(root, 'sw.js'), 'utf8');
-  for (const asset of ['./icon-192.png', './icon-512.png', './timer-core.js', './pending-session-store.js', './dashboard-metrics.js', './workout-view.js', './liquid-glass.css', './app.css']) {
+  for (const asset of ['./icon-192.png', './icon-512.png', './timer-core.js', './pending-session-store.js', './dashboard-metrics.js', './workout-view.js', './state-backup.js', './liquid-glass.css', './app.css']) {
     assert.ok(worker.includes(asset), `${asset} is precached`);
     assert.equal(fs.existsSync(path.join(root, asset.slice(2))), true, asset);
   }
