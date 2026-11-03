@@ -349,3 +349,6 @@ html[data-theme="light"] .phase-chip.running { color:#087f69; }
 html[data-theme="light"] .phase-chip.warmup { color:#225fae; }
 html[data-theme="light"] .phase-chip.walking { color:#8a5c08; }
 html[data-theme="light"] .phase-chip.cooldown { color:#6e40ad; }
+
+html { scroll-behavior:auto !important; }
+html[data-theme="light"] #planReason { color:#617086; }
