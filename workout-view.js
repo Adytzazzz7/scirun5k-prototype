@@ -31,6 +31,7 @@ function updateWorkoutPage(){
  const completedRuns=currentTimer.segments.slice(0,currentTimer.index).filter(item=>item.type==='run').length;
  const roundProgress=Math.min(runs.length,completedRuns+(seg.type==='run'?elapsedInSegment/Math.max(1,seg.seconds):0));
  const roundNumber=seg.type==='cooldown'?runs.length:seg.type==='walk'?Math.max(1,completedRuns):Math.max(1,completedRuns+1);
+ ring.dataset.phase=seg.type;
  ring.style.setProperty('--timer-progress',segmentPercent+'%');
  ring.setAttribute('aria-label',workoutText('Intervalul curent: ','Current interval: ')+workoutIntervalName(seg)+', '+formatSeconds(remaining)+', '+workoutText('runda ','round ')+roundNumber+' '+workoutText('din ','of ')+runs.length);
  $('timerBig').textContent=formatSeconds(remaining);
@@ -44,7 +45,7 @@ function updateWorkoutPage(){
  if(countdown){
    const seconds=Math.ceil(remaining);
    countdown.classList.toggle('hidden',!next||currentTimer.paused||seconds>5);
-   if(next&&seconds<=5&&!currentTimer.paused)countdown.textContent=workoutText('În '+Math.max(1,seconds)+' secunde: '+workoutIntervalName(next),'In '+Math.max(1,seconds)+' seconds: '+workoutIntervalName(next));
+   if(next&&seconds<=5&&!currentTimer.paused){const nextSpeed=Number(next.speed)||Number(next.type==='run'?state.profile?.runSpeed:state.profile?.walkSpeed);countdown.textContent=workoutText('În '+Math.max(1,seconds)+' secunde: '+workoutIntervalName(next),'In '+Math.max(1,seconds)+' seconds: '+workoutIntervalName(next))+(nextSpeed>0?' · '+nextSpeed.toFixed(1)+' km/h':'');}
  }
  $('roundCount').textContent=Math.floor(roundProgress)+' / '+runs.length;
  $('roundBar').style.width=Math.min(100,roundProgress/Math.max(1,runs.length)*100)+'%';

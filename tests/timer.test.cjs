@@ -937,7 +937,7 @@ function experienceContext(overrides = {}) {
     state:{profile:{safetyAnswer:'no',runStatus:'known',runMinutes:3,startDate:'2026-11-03',
       trainingDays:[1,2,3],sessionsPerWeek:3,runSpeed:6.5,walkSpeed:4.5,firstSessionFeedbackDone:true},
       level:0,history:[],blackoutDates:[],easyStreak:0,moderateStreak:0,hardStreak:0,reduceNext:false,goalReached:false},
-    resetApp:()=>true, importBackupFile:async()=>{},
+    resetApp:()=>true, importBackupFile:async()=>{}, togglePause:()=>{},
     buildSegments:(level,factor=1)=>[{type:'warmup',seconds:300},{type:'run',seconds:Math.round(stages[level].run*factor)},{type:'cooldown',seconds:300}],
     window:{addEventListener:()=>{}}, document:{querySelectorAll:()=>[]},
     localDay:(date)=>{const d=new FixedDate(date);d.setHours(0,0,0,0);return d;},
@@ -1011,4 +1011,24 @@ test('completed skipped workouts save real total distance without requiring a co
   assert.equal(context.state.history[0].distanceKm,5.2);
   assert.equal(context.state.goalReached,false);
   assert.equal(context.pendingSession,null);
+});
+
+
+test('workout renders share one wake lock and late requests release after leaving the workout', async () => {
+  let active=false, requests=0, releases=0, resolveLock;
+  const context=experienceContext({
+    document:{visibilityState:'visible',querySelectorAll:()=>[],
+      body:{classList:{toggle:(name,value)=>{if(name==='workout-active')active=value;},contains:()=>active}}},
+    window:{addEventListener:()=>{},scrollTo:()=>{}},
+    navigator:{wakeLock:{request:()=>{requests++;return new Promise(resolve=>{resolveLock=resolve;});}}}
+  });
+  context.showView('workout');
+  context.showView('workout');
+  assert.equal(requests,1);
+  context.showView('dashboard');
+  resolveLock({release:()=>{releases++;return Promise.resolve();},addEventListener:()=>{},released:false});
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(releases,1);
+  context.showView('workout');
+  assert.equal(requests,2);
 });

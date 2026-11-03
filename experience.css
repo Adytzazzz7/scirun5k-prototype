@@ -327,3 +327,9 @@ html[data-theme="light"] .stat .value, html[data-theme="light"] .setting-row { c
 :root[data-theme="dark"] { --text:#f1f3f7; --surface:#11141d; --surface-strong:#11141d; --surface-soft:#151923; --nav-surface:#0f121a; --line:rgba(163,174,190,.14); --cyan:#58e6c7; --electric:#58e6c7; }
 :root[data-theme="dark"] .eyebrow { color:#96a3b4; }
 .setup-backup { margin-top:20px; padding-top:12px; border-top:1px solid var(--line); }
+
+.workout-ring { --phase-color:#58e6c7; background:conic-gradient(var(--phase-color) 0 var(--timer-progress),rgba(120,152,190,.22) var(--timer-progress) 100%); }
+.workout-ring[data-phase="warmup"] { --phase-color:#8bb6ff; }
+.workout-ring[data-phase="walk"] { --phase-color:#f0b84e; }
+.workout-ring[data-phase="cooldown"] { --phase-color:#b385ff; }
+.workout-current { color:var(--phase-color); }

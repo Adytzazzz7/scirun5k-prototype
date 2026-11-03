@@ -3,6 +3,7 @@
   const originalResetApp = resetApp;
   const originalImportBackupFile = importBackupFile;
   const originalBuildSegments = buildSegments;
+  const originalTogglePause = togglePause;
   const dateLabel = (value, options = { day: 'numeric', month: 'short' }) => {
     const date = value instanceof Date ? value : new Date(value);
     return Number.isFinite(date.getTime()) ? new Intl.DateTimeFormat(lang === 'ro' ? 'ro-RO' : 'en-GB', options).format(date) : '—';
@@ -328,6 +329,7 @@
     document.querySelectorAll('#scheduleDays input').forEach(c => c.checked = (state.profile.trainingDays || []).includes(Number(c.value)));
     $('soundPreference').checked = soundEnabled;
     const unavailable = state.blackoutDates || [];
+    $('clearUnavailable').classList.toggle('hidden', unavailable.length === 0);
     $('unavailableList').innerHTML = unavailable.length
       ? '<small>' + txt('Zile excluse: ', 'Unavailable dates: ') + unavailable.map(d => dateLabel(d)).join(', ') + '</small>'
       : '<small>' + txt('Nu ai marcat perioade indisponibile.', 'No unavailable dates marked.') + '</small>';
@@ -500,6 +502,11 @@
       osc.connect(gain); gain.connect(workoutAudioContext.destination);
       osc.start(now); osc.stop(now + 0.29);
     } catch (e) {}
+  };
+
+  togglePause = function () {
+    originalTogglePause();
+    if (currentTimer) playWorkoutCue(currentTimer.paused ? 'rest' : currentTimer.segments[currentTimer.index]?.type || 'run');
   };
 
   tickTimer = function () {
@@ -700,6 +707,7 @@
     $('setupFrequency')?.addEventListener('change', experienceStrings);
     $('saveSchedule').onclick = saveScheduleSettings;
     $('addUnavailable').onclick = addUnavailableRange;
+    $('clearUnavailable').onclick = () => { const previous = state.blackoutDates; state.blackoutDates = []; if (!saveState()) { state.blackoutDates = previous; return; } renderAll(); };
     $('editScheduleShortcut').onclick = () => { showView('settings'); $('settingFrequency').scrollIntoView({ behavior: 'smooth', block: 'center' }); };
     $('soundPreference').onchange = () => {
       soundEnabled = $('soundPreference').checked;
@@ -754,7 +762,7 @@
     experienceStrings();
     bindExperienceControls();
     applyLanguage();
-    if (state.profile) renderAll();
+    if (state.profile && state.profile.safetyAnswer === 'no') { renderAll(); showView('dashboard'); }
     else showView('onboarding');
     if (!restorePendingSession()) restoreTimer();
     if (currentTimer && state.profile?.safetyAnswer === 'no') { stopTimerInterval(); showView('workout'); renderWorkoutPage(); timerInterval = setInterval(tickTimer, 250); }
