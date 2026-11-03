@@ -596,3 +596,16 @@ test('profile and manual goal changes roll back when storage refuses the write',
   fields.confirmGoal.onclick();
   assert.equal(context.state.goalReached, false);
 });
+test('startup preference reads tolerate inaccessible local storage', () => {
+  const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  const storageGet = html.match(/function storageGet\(key\)\{[^\r\n]*\}/)?.[0];
+  assert.ok(storageGet);
+  const context = { localStorage: { getItem: () => { throw new Error('storage unavailable'); } } };
+  vm.createContext(context);
+  vm.runInContext(storageGet, context);
+  assert.equal(context.storageGet('scirun.lang'), null);
+  assert.match(html, /let lang = storageGet\('scirun\.lang'\) \|\| 'ro';/);
+  assert.match(html, /soundEnabled = storageGet\('scirun\.timerSound'\) === 'true'/);
+  assert.match(html, /const savedTheme=storageGet\('scirun\.theme'\)/);
+  assert.match(html, /if\(!storageGet\('scirun\.theme'\)\)/);
+});
