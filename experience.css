@@ -1,0 +1,329 @@
+
+:root {
+  color-scheme: dark;
+  --navy: #f1f3f7;
+  --navy2: #0e1118;
+  --sky: #58e6c7;
+  --sky2: rgba(88, 230, 199, .12);
+  --orange: #58e6c7;
+  --orange2: rgba(88, 230, 199, .12);
+  --paper: #07080e;
+  --white: #11141d;
+  --muted: #98a2b3;
+  --line: rgba(163, 174, 190, .13);
+  --green: #5de5c7;
+  --greenbg: rgba(53, 191, 161, .15);
+  --red: #ff727f;
+  --redbg: rgba(255, 114, 127, .12);
+  --shadow: 0 16px 50px rgba(0, 0, 0, .28);
+  --radius: 24px;
+}
+html { color-scheme: dark; background: #07080e; }
+body {
+  color: #f2f4f8;
+  background:
+    radial-gradient(ellipse at 3% 5%, rgba(34, 124, 111, .16), transparent 34rem),
+    radial-gradient(ellipse at 97% 3%, rgba(100, 53, 129, .13), transparent 36rem),
+    #07080e;
+  min-height: 100vh;
+}
+.topbar {
+  background: rgba(8, 10, 16, .9);
+  border-bottom: 1px solid var(--line);
+  box-shadow: none;
+  backdrop-filter: blur(18px);
+}
+.topinner { max-width: 1420px; min-height: 68px; padding: 10px 28px; }
+.brand { color: #f1f3f7; gap: 12px; font-weight: 800; }
+.brand-mark {
+  border-radius: 50%;
+  width: 38px; height: 38px;
+  color: var(--sky); background: rgba(88, 230, 199, .1);
+  border: 1px solid rgba(88, 230, 199, .4); font-size: .8rem;
+}
+.nav { gap: 4px; }
+.nav button {
+  color: #9aa5b4; border-radius: 999px; padding: 10px 14px;
+}
+.nav button.active, .nav button:hover {
+  background: #20232d; color: #f4f6f8;
+}
+main.wrap { max-width: 1420px; padding: 36px 28px 76px; }
+.view.active { min-height: calc(100vh - 160px); }
+.eyebrow { color: #96a3b4; font-size: .72rem; letter-spacing: .17em; }
+.title { color: #f3f5f8; }
+.lead, .muted, .small, .tiny { color: var(--muted); }
+.card, .stat, .formcard, .week, .history-entry {
+  color: #f1f3f7;
+  background: rgba(17, 20, 29, .92);
+  border: 1px solid rgba(163, 174, 190, .14);
+  border-radius: 24px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .14);
+}
+.stat { padding: 19px 22px; }
+.stat .k, .stat .sub { color: #9da7b6; }
+.stat .value { color: #f4f5f7; }
+.btn { color: #04231e; background: #58e6c7; border-radius: 999px; }
+.btn.secondary { color: #f4f5f7; background: #232630; }
+.btn.ghost { color: #dce1e8; background: transparent; border-color: var(--line); }
+.btn.dark { color: #fff; background: #20232d; }
+.tag, .tag.orange {
+  color: #55d9bd; background: rgba(88, 230, 199, .1);
+  border: 1px solid rgba(88, 230, 199, .22);
+}
+.formcard { padding: clamp(22px, 4vw, 34px); }
+.field input, .field select, input[type="date"], .date-range input {
+  color: #f2f4f7; background: #0e1118; border: 1px solid var(--line);
+}
+.field select option { background: #11141d; }
+.daychoice span {
+  color: #9da7b6; background: #11141d; border-color: var(--line);
+}
+.daychoice input:checked + span {
+  color: #05231f; border-color: #58e6c7; background: #58e6c7;
+}
+.checkline { color: #c2cad5; }
+.pill, .sessionrow, .nextworkout {
+  color: #e6e9ef; background: #151923; border-color: var(--line);
+}
+.progressline, .bar-track { background: #282d38; }
+.progressline span { background: linear-gradient(90deg, #4dcbb0, #65edd0); }
+.weeknum { color: #e9ecf1; background: #252935; }
+.week.activeweek .weeknum { color: #03221d; background: #58e6c7; }
+.weekhead, .weekbody { border-color: var(--line); }
+.empty, .chart-empty { color: #9ca6b5; border-color: var(--line); }
+.sectiontitle { margin-top: 34px; }
+.sectiontitle h2, .card h2 { color: #f1f3f7; }
+.modal {
+  color: #f1f3f7; background: #12151e; border: 1px solid var(--line);
+}
+.toast { color: #f1f3f7; background: #222631; border: 1px solid var(--line); }
+.footer { color: #818b9a; border-color: var(--line); }
+.legacy-section, .legacy-compat, .compat-fields { display: none !important; }
+.experience-onboarding { max-width: 760px; }
+.experience-onboarding h2 { margin: 0 0 7px; font-size: 1.4rem; }
+.experience-onboarding .field { margin: 18px 0; }
+.experience-onboarding .lead { max-width: 680px; }
+.step-indicator { display:flex; align-items:center; gap:10px; margin: 0 0 18px; color:#8792a2; }
+.step-indicator span {
+  width:30px; height:30px; display:grid; place-items:center; border-radius:50%;
+  border:1px solid var(--line); background:#11141d; font-weight:800;
+}
+.step-indicator span.current { color:#06241f; border-color:#58e6c7; background:#58e6c7; }
+.step-indicator i { width:32px; height:1px; background:var(--line); }
+.step-indicator strong { margin-left:5px; font-size:.82rem; font-weight:700; }
+.safety-stop {
+  padding:15px; margin:16px 0; border-radius:16px;
+  color:#ffd9dd; background:var(--redbg); border:1px solid rgba(255,114,127,.24);
+}
+.form-error { min-height:1.2em; color:#ff8993; }
+.home-heading { margin: 0 0 17px; }
+.home-heading .title { margin-bottom:0; font-size:clamp(1.8rem, 3vw, 2.4rem); }
+.home-stats { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; margin-bottom:22px; }
+.home-stats .stat { min-height:108px; padding:16px 19px; }
+.home-stats .stat .k { font-size:.73rem; letter-spacing:.035em; }
+.home-stats .stat .value { margin:5px 0 0; font-size:1.65rem; }
+.home-grid { display:grid; grid-template-columns:minmax(0,1.27fr) minmax(330px,.95fr); gap:20px; align-items:start; }
+.next-workout-card {
+  min-height: 560px; padding: clamp(22px, 3vw, 34px);
+  background:
+    radial-gradient(circle at 95% 5%, rgba(62, 183, 155, .18), transparent 15rem),
+    linear-gradient(145deg, #191c25, #10141d 72%);
+  border-color:rgba(163,174,190,.2);
+}
+.next-workout-card .cardhead { margin-bottom:22px; }
+.next-workout-card h2 { margin:15px 0 7px; font-size:clamp(1.55rem, 2.5vw, 2rem); }
+.phase-chips { display:flex; flex-wrap:wrap; gap:8px; margin:18px 0 24px; }
+.phase-chip {
+  display:inline-flex; align-items:center; padding:8px 12px; border-radius:999px;
+  font-size:.77rem; font-weight:850; white-space:nowrap; border:1px solid;
+}
+.phase-chip.warmup { color:#8bb6ff; background:rgba(89,139,229,.12); border-color:rgba(107,154,238,.44); }
+.phase-chip.running { color:#50e4c4; background:rgba(48,187,158,.12); border-color:rgba(66,218,185,.45); }
+.phase-chip.walking { color:#f0b84e; background:rgba(221,157,47,.13); border-color:rgba(226,162,53,.46); }
+.phase-chip.cooldown { color:#b385ff; background:rgba(142,98,218,.13); border-color:rgba(158,113,230,.45); }
+.workout-metrics { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:11px; margin:20px 0 23px; }
+.workout-metrics > div, .home-speed-stats .card {
+  padding:14px 16px; border-radius:17px; border:1px solid var(--line);
+  background:rgba(255,255,255,.035);
+}
+.workout-metrics small, .home-speed-stats small { display:block; color:#929dac; font-size:.69rem; letter-spacing:.04em; }
+.workout-metrics strong, .home-speed-stats strong { display:block; margin-top:5px; font-size:1.14rem; color:#f3f5f7; }
+.why-plan { padding-top:4px; margin-bottom:24px; }
+.why-plan strong { color:#9ca6b5; font-size:.72rem; letter-spacing:.06em; }
+.why-plan p { margin:8px 0; color:#bcc4ce; }
+.start-next-btn { min-width:205px; padding:15px 22px; }
+.home-side { display:grid; gap:15px; }
+.home-side .card { padding:22px; }
+.home-side .cardhead { align-items:center; margin-bottom:12px; }
+.home-side .cardhead h2 { margin:0; font-size:1.1rem; }
+.home-side .cardhead small { color:#9aa4b3; }
+.text-button { padding:4px; color:#9da9b8; background:none; font-size:.78rem; font-weight:700; }
+.distance-card { min-height:200px; }
+.chart-empty { min-height:130px; display:grid; place-items:center; text-align:center; padding:20px; }
+.distance-bars { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:10px; align-items:end; height:143px; padding-top:10px; }
+.distance-column { height:100%; display:flex; flex-direction:column; align-items:center; justify-content:end; gap:6px; min-width:0; }
+.distance-column strong { font-size:.69rem; color:#c2cad4; }
+.distance-column small { color:#909aaa; font-size:.67rem; }
+.bar-track { display:flex; align-items:end; width:min(30px,80%); height:75px; overflow:hidden; border-radius:8px; }
+.bar-track i { display:block; width:100%; min-height:8px; border-radius:8px 8px 2px 2px; background:linear-gradient(#55e3c4,#268f7b); }
+.recent-session {
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
+  padding:12px 14px; margin-top:8px; border:1px solid var(--line);
+  background:#161923; border-radius:15px;
+}
+.recent-session strong, .recent-session span, .recent-session small { display:inline-block; }
+.recent-session strong { margin-right:9px; }
+.recent-session span { color:#53d8bd; font-size:.67rem; font-weight:900; }
+.recent-session small { display:block; margin-top:3px; color:#98a2b1; }
+.recent-session b { color:#59e3c4; }
+.home-speed-stats { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.weekly-card { padding:12px; }
+.week-days { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:9px; }
+.week-day {
+  display:grid; justify-items:center; gap:5px; padding:12px 5px;
+  min-height:90px; border-radius:16px; background:#151923; border:1px solid var(--line);
+  text-align:center;
+}
+.week-day span { color:#a4adba; font-size:.72rem; }
+.week-day strong { color:#f3f5f7; font-size:1rem; }
+.week-day small { color:#909baa; font-size:.63rem; }
+.week-day.is-planned { border-color:rgba(88,230,199,.32); }
+.week-day.is-done { background:rgba(69,190,163,.13); border-color:rgba(88,230,199,.4); }
+.week-day.is-done small { color:#59dfc2; }
+.week-day.is-off { opacity:.5; }
+.history-stats { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; margin:22px 0; }
+.history-list { display:grid; gap:12px; }
+.history-entry { padding:18px 20px; }
+.history-entry-head { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.history-entry-head strong { font-size:1rem; }
+.history-entry-data { display:flex; gap:20px; flex-wrap:wrap; margin-top:12px; color:#aeb7c4; font-size:.88rem; }
+.status { font-size:.7rem; font-weight:900; text-transform:uppercase; letter-spacing:.05em; }
+.status.done { color:#5ee1c4; }
+.status.partial { color:#f0b84e; }
+.history-empty { background:#11141d; }
+.settings-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); align-items:start; gap:16px; }
+.settings-grid .card { padding:24px; }
+.settings-grid .field { margin:16px 0; }
+.settings-grid h3 { margin:0 0 8px; font-size:1rem; }
+.setting-row { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:13px 0; border-bottom:1px solid var(--line); color:#dfe3e9; }
+.setting-control { margin-left:auto; }
+.lang-switch { background:#20232d; }
+.lang-switch button { color:#9ca6b4; }
+.lang-switch button.active { color:#06241f; background:#58e6c7; }
+.theme-toggle { color:#dce1e8; background:#20232d; border:1px solid var(--line); border-radius:999px; padding:9px 13px; }
+.setting-row input[type="checkbox"] { accent-color:#58e6c7; width:19px; height:19px; }
+.date-range { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:14px 0; }
+.date-range label { font-size:.8rem; font-weight:800; color:#dfe3e9; }
+.date-range input { display:block; width:100%; margin-top:6px; padding:10px; border-radius:11px; }
+.unavailable-list { margin-top:12px; color:#a3adbb; }
+.danger-button { color:#ffdfe2; background:rgba(155,45,57,.34); margin-top:16px; border:1px solid rgba(255,114,127,.25); }
+.danger-button:hover { filter:brightness(1.12); }
+.workout-active .topbar, .workout-active .footer, .workout-active #nav, .setup-active #nav { display:none; }
+.workout-active main.wrap { padding-top:16px; }
+@media (max-width: 900px) {
+  main.wrap { padding:26px 20px 100px; }
+  .home-grid { grid-template-columns:1fr; }
+  .next-workout-card { min-height:auto; }
+  .home-side { grid-template-columns:1fr 1fr; }
+  .home-side .distance-card { grid-column:1 / -1; }
+}
+@media (max-width: 720px) {
+  .topinner { min-height:58px; padding:8px 16px; }
+  .brand-mark { width:34px; height:34px; }
+  .nav {
+    position:fixed; z-index:100; left:12px; right:12px; bottom:max(10px, env(safe-area-inset-bottom));
+    display:grid; grid-template-columns:repeat(3,1fr); gap:4px; padding:6px;
+    border:1px solid rgba(163,174,190,.16); border-radius:20px;
+    background:rgba(15,18,26,.94); box-shadow:0 12px 40px rgba(0,0,0,.38);
+    backdrop-filter:blur(20px);
+  }
+  .nav button { padding:12px 6px; font-size:.83rem; }
+  main.wrap { padding:24px 15px 112px; }
+  .home-stats { grid-template-columns:1fr 1fr; gap:10px; }
+  .home-stats .stat { padding:14px; min-height:100px; }
+  .home-stats .goal-date-card { grid-column:1 / -1; }
+  .home-stats .stat .k { font-size:.66rem; }
+  .home-stats .stat .value { font-size:1.42rem; }
+  .home-side { grid-template-columns:1fr; }
+  .home-side .distance-card { grid-column:auto; }
+  .workout-metrics { grid-template-columns:1fr 1fr; }
+  .workout-metrics > div:last-child { grid-column:1 / -1; }
+  .week-days { grid-template-columns:repeat(4,minmax(0,1fr)); }
+  .history-stats { grid-template-columns:1fr 1fr; }
+  .history-stats .stat:last-child { grid-column:1 / -1; }
+  .settings-grid { grid-template-columns:1fr; }
+  .date-range { grid-template-columns:1fr; }
+  .experience-onboarding .formcard { padding:20px; }
+  .distance-bars { gap:5px; }
+  .distance-column strong { font-size:.6rem; }
+}
+@media (max-width: 380px) {
+  .week-days { grid-template-columns:repeat(3,minmax(0,1fr)); }
+  .home-stats .stat .k { letter-spacing:0; }
+}
+html[data-theme="light"] {
+  color-scheme: light;
+  --navy:#152233; --paper:#f3f5f8; --white:#fff; --muted:#627086;
+  --line:rgba(48,64,84,.15); --sky:#38b89e; --sky2:rgba(56,184,158,.12);
+  --orange:#38b89e; --orange2:rgba(56,184,158,.12); --green:#278b72;
+  --shadow:0 14px 40px rgba(20,38,58,.08);
+}
+html[data-theme="light"] body {
+  color:#152233;
+  background:radial-gradient(ellipse at 3% 5%,rgba(71,191,166,.12),transparent 34rem),#f3f5f8;
+}
+html[data-theme="light"] .topbar { background:rgba(255,255,255,.9); }
+html[data-theme="light"] .brand, html[data-theme="light"] .title, html[data-theme="light"] .card h2,
+html[data-theme="light"] .history-entry-head strong { color:#182333; }
+html[data-theme="light"] .nav button.active { background:#e5eaf0; color:#182333; }
+html[data-theme="light"] .card, html[data-theme="light"] .stat, html[data-theme="light"] .formcard,
+html[data-theme="light"] .history-entry, html[data-theme="light"] .week {
+  color:#182333; background:rgba(255,255,255,.92); border-color:rgba(48,64,84,.13);
+}
+html[data-theme="light"] .stat .k, html[data-theme="light"] .stat .sub, html[data-theme="light"] .muted { color:#687487; }
+html[data-theme="light"] .next-workout-card { background:radial-gradient(circle at 95% 5%,rgba(62,183,155,.15),transparent 15rem),linear-gradient(145deg,#fff,#f1f6f7 72%); }
+html[data-theme="light"] .workout-metrics > div, html[data-theme="light"] .home-speed-stats .card,
+html[data-theme="light"] .recent-session, html[data-theme="light"] .week-day,
+html[data-theme="light"] .field input, html[data-theme="light"] .field select,
+html[data-theme="light"] .date-range input { color:#182333; background:#fff; border-color:rgba(48,64,84,.15); }
+html[data-theme="light"] .workout-metrics strong, html[data-theme="light"] .home-speed-stats strong,
+html[data-theme="light"] .week-day strong { color:#182333; }
+html[data-theme="light"] .nav { background:rgba(255,255,255,.94); }
+html[data-theme="light"] .nav button { color:#5f6b7c; }
+html[data-theme="light"] .nav button.active { background:#e7edf2; }
+
+.goal-celebration {
+  display:flex; align-items:center; gap:18px; margin:0 0 20px; padding:20px 22px;
+  border:1px solid rgba(88,230,199,.33); border-radius:22px;
+  background:linear-gradient(110deg,rgba(47,162,138,.17),rgba(17,20,29,.94));
+}
+.goal-celebration h2 { margin:0; font-size:1.2rem; }
+.goal-celebration p { color:#aeb9c5; margin:5px 0 0; }
+.medal-static { font-size:2.25rem; }
+.goal-celebration .btn { margin-left:auto; }
+.workout-recommended-speed { display:block; color:#59e2c3; font-size:.94rem; font-weight:850; margin-top:8px; }
+.phase-countdown {
+  display:block; margin-top:8px; padding:6px 10px; border-radius:999px;
+  color:#f0bc58; background:rgba(225,165,56,.13);
+  font-size:.8rem; font-weight:850;
+}
+.first-speed-feedback { display:grid; gap:13px; }
+.first-speed-feedback legend { margin-bottom:10px; }
+.first-speed-feedback small { color:#96a2b1; }
+#goalCheckLine { margin:16px 0; }
+@media (max-width: 720px) {
+  .goal-celebration { align-items:flex-start; flex-wrap:wrap; padding:17px; }
+  .goal-celebration .btn { margin:0; width:100%; }
+}
+html[data-theme="light"] .goal-celebration { background:linear-gradient(110deg,rgba(47,162,138,.13),#fff); }
+
+.topinner { display:flex; }
+.brand { display:flex; grid-column:auto; }
+.nav { grid-column:auto; margin-left:auto; }
+@media(max-width:720px) { .nav { width:auto; max-width:none; transform:none; } }
+html[data-theme="light"] .stat .value, html[data-theme="light"] .setting-row { color:#182333; }
+
+:root[data-theme="dark"] { --text:#f1f3f7; --surface:#11141d; --surface-strong:#11141d; --surface-soft:#151923; --nav-surface:#0f121a; --line:rgba(163,174,190,.14); --cyan:#58e6c7; --electric:#58e6c7; }
+:root[data-theme="dark"] .eyebrow { color:#96a3b4; }
+.setup-backup { margin-top:20px; padding-top:12px; border-top:1px solid var(--line); }

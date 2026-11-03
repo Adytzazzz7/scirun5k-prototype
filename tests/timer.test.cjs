@@ -145,11 +145,12 @@ test('app restores pending feedback before attempting to resume an active timer'
   const view = fs.readFileSync(path.join(root, 'workout-view.js'), 'utf8');
   assert.match(html, /<script src="pending-session-store\.js"><\/script>/);
   assert.match(html, /function savePendingSession\(\)/);
-  assert.match(html, /if\(!restorePendingSession\(\)\)restoreTimer\(\)/);
+  const experience = fs.readFileSync(path.join(root, 'experience.js'), 'utf8');
+  assert.match(experience, /if \(!restorePendingSession\(\)\) restoreTimer\(\)/);
   assert.match(html, /state\.history\.push\(\{id:pendingSession\.id\|\|Date\.now\(\)/);
   assert.match(html, /selectedEffort=pendingSession\.selectedEffort\|\|null/);
-  assert.match(view, /pendingSession\.selectedEffort=selectedEffort;savePendingSession\(\)/);
-  assert.match(view, /pendingSession\.selectedRatio=selectedRatio;savePendingSession\(\)/);
+  assert.match(view, /pendingSession\.selectedEffort=selectedEffort/);
+  assert.match(view, /pendingSession\.distanceDraft=distance/);
 });
 
 test('dashboard plan completion counts complete sessions only, not algorithm stages or partial sessions', () => {
@@ -195,7 +196,7 @@ test('workout timer is a dedicated view with distinct pause, finish, abandon, an
   assert.match(html, /<section id="workout" class="view workout-view"/);
   assert.match(html, /<script src="workout-view.js"><\/script>/);
   assert.doesNotMatch(html, /renderTimerModal|closeTimer/);
-  for (const control of ['workoutPause', 'workoutSound', 'workoutFinish', 'workoutAbandon']) assert.ok(view.includes(control), control);
+  for (const control of ['workoutPause', 'workoutSkip', 'workoutFinish', 'workoutAbandon', 'recommendedSpeed', 'phaseCountdown']) assert.ok(view.includes(control), control);
   assert.ok(view.includes('workoutRing'));
   assert.ok(view.includes('nextInterval'));
   assert.match(view, /renderWorkoutFeedbackPage/);
@@ -799,8 +800,10 @@ test('backup import validates exported state and sanitizes history fields', () =
     profile: {
       age: '30-39', sex: '', runStatus: 'none', runMinutes: 0, steps: null,
       trainingDays: [1, 3, 5], safetyAck: true, startDate: '2026-11-03',
+      sessionsPerWeek: 3, walkSpeed: null, runSpeed: null,
+      firstSessionFeedbackDone: false,
     },
-    level: 2,
+    level: 2, blackoutDates: [],
     history: [{
       id: 123, date: '2026-11-03', level: 2, status: 'done', effort: 'easy',
       completion: 1, timerCompletion: 1, elapsed: 600, week: 1,
@@ -811,7 +814,7 @@ test('backup import validates exported state and sanitizes history fields', () =
   assert.deepEqual(JSON.parse(JSON.stringify(
     backupContext.SciRunStateBackup.parse(JSON.stringify({ profile: null, level: 0, history: [] }), 15),
   )), {
-    profile: null, level: 0, history: [],
+    profile: null, level: 0, history: [], blackoutDates: [],
     easyStreak: 0, moderateStreak: 0, hardStreak: 0, reduceNext: false, goalReached: false,
   });
 });
@@ -841,4 +844,171 @@ test('backup import rejects malformed, unsafe, or structurally incomplete data',
       /Invalid SciRun backup file/,
     );
   }
+});
+
+test('treadmill backup preserves real distances, speed feedback, temporary availability, and the 5 km achievement', () => {
+  const backupContext = {};
+  vm.createContext(backupContext);
+  vm.runInContext(fs.readFileSync(path.join(root, 'state-backup.js'), 'utf8'), backupContext);
+  const saved = {
+    profile: {
+      runStatus: 'known', runMinutes: 3, safetyAnswer: 'no',
+      trainingDays: [1, 2, 3, 4], sessionsPerWeek: 4, startDate: '2026-11-03',
+      walkSpeed: 4.5, runSpeed: 6.5, firstSessionFeedbackDone: true,
+    },
+    level: 4,
+    history: [
+      {
+        id: 'partial-1', date: '2026-11-03', level: 3, status: 'partial', effort: 'hard',
+        completion: 0.7, timerCompletion: 0.7, elapsed: 800, distanceKm: 1.42,
+        runFeel: 'tooFast', walkFeel: 'right', skippedRunSeconds: 30, goalContinuous5k: false,
+      },
+      {
+        id: 'goal-1', date: '2026-11-05', level: 4, status: 'done', effort: 'moderate',
+        completion: 1, timerCompletion: 1, elapsed: 2400, distanceKm: 5.12,
+        runFeel: null, walkFeel: null, skippedRunSeconds: 0, goalContinuous5k: true,
+      },
+    ],
+    blackoutDates: ['2026-11-06', '2026-11-07', '2026-11-06'],
+    easyStreak: 0, moderateStreak: 1, hardStreak: 0, reduceNext: false,
+    goalReached: true, goalDate: '2026-11-05', achievementDistance: 5.12,
+    lastPlanReason: 'Sesiune salvată.',
+  };
+  const restored = JSON.parse(JSON.stringify(backupContext.SciRunStateBackup.parse(JSON.stringify(saved), 15)));
+  assert.deepEqual(restored.profile, saved.profile);
+  assert.deepEqual(restored.history, saved.history);
+  assert.deepEqual(restored.blackoutDates, ['2026-11-06', '2026-11-07']);
+  assert.equal(restored.goalReached, true);
+  assert.equal(restored.goalDate, '2026-11-05');
+  assert.equal(restored.achievementDistance, 5.12);
+  assert.equal(restored.lastPlanReason, 'Sesiune salvată.');
+});
+
+test('treadmill backup rejects unsafe schedules, impossible distances, and malformed availability data', () => {
+  const backupContext = {};
+  vm.createContext(backupContext);
+  vm.runInContext(fs.readFileSync(path.join(root, 'state-backup.js'), 'utf8'), backupContext);
+  const profile = {
+    runStatus: 'known', runMinutes: 3, safetyAnswer: 'no',
+    trainingDays: [1, 2, 3], sessionsPerWeek: 3, startDate: '2026-11-03',
+    walkSpeed: 4.5, runSpeed: 6.5, firstSessionFeedbackDone: true,
+  };
+  const valid = { profile, level: 2, history: [] };
+  const entry = { date: '2026-11-03', level: 2, status: 'done', distanceKm: 2.4 };
+  const invalid = [
+    { ...valid, profile: { ...profile, safetyAnswer: 'yes', safetyAck: true } },
+    { ...valid, profile: { ...profile, sessionsPerWeek: 4 } },
+    { ...valid, profile: { ...profile, sessionsPerWeek: 1 } },
+    { ...valid, profile: { ...profile, sessionsPerWeek: 2.5 } },
+    { ...valid, profile: { ...profile, trainingDays: [1, 1, 2] } },
+    { ...valid, profile: { ...profile, walkSpeed: 10 } },
+    { ...valid, profile: { ...profile, runSpeed: 2 } },
+    { ...valid, history: [{ ...entry, distanceKm: -0.1 }] },
+    { ...valid, history: [{ ...entry, distanceKm: 100.01 }] },
+    { ...valid, history: [{ ...entry, distanceKm: '2.4' }] },
+    { ...valid, history: [{ ...entry, runFeel: 'unknown' }] },
+    { ...valid, history: [{ ...entry, skippedRunSeconds: -1 }] },
+    { ...valid, history: [{ ...entry, goalContinuous5k: 'true' }] },
+    { ...valid, blackoutDates: ['2026-02-30'] },
+    { ...valid, blackoutDates: new Array(501).fill('2026-11-03') },
+    { ...valid, goalDate: '2026-11-31' },
+    { ...valid, achievementDistance: 4.99 },
+  ];
+  for (const saved of invalid) {
+    assert.throws(
+      () => backupContext.SciRunStateBackup.parse(JSON.stringify(saved), 15),
+      /Invalid SciRun backup file/,
+    );
+  }
+});
+
+
+function experienceContext(overrides = {}) {
+  const fixedNow = Date.parse('2026-11-03T09:00:00Z');
+  class FixedDate extends Date {
+    constructor(...args) { super(...(args.length ? args : [fixedNow])); }
+    static now() { return fixedNow; }
+  }
+  const stages = [{ type:'interval', run:30, walk:90, reps:8, name:{ro:'Start',en:'Start'} },
+    { type:'continuous', run:2700, walk:0, reps:1, name:{ro:'Final',en:'Final'} }];
+  const context = {
+    Date: FixedDate, Math, Number, JSON, Intl, Set,
+    lang:'ro', I18N:{ro:{},en:{}}, STAGES:stages,
+    state:{profile:{safetyAnswer:'no',runStatus:'known',runMinutes:3,startDate:'2026-11-03',
+      trainingDays:[1,2,3],sessionsPerWeek:3,runSpeed:6.5,walkSpeed:4.5,firstSessionFeedbackDone:true},
+      level:0,history:[],blackoutDates:[],easyStreak:0,moderateStreak:0,hardStreak:0,reduceNext:false,goalReached:false},
+    resetApp:()=>true, importBackupFile:async()=>{},
+    buildSegments:(level,factor=1)=>[{type:'warmup',seconds:300},{type:'run',seconds:Math.round(stages[level].run*factor)},{type:'cooldown',seconds:300}],
+    window:{addEventListener:()=>{}}, document:{querySelectorAll:()=>[]},
+    localDay:(date)=>{const d=new FixedDate(date);d.setHours(0,0,0,0);return d;},
+    dateKey:date=>[date.getFullYear(),String(date.getMonth()+1).padStart(2,'0'),String(date.getDate()).padStart(2,'0')].join('-'),
+    t:key=>key, pendingSession:null, currentTimer:null, selectedEffort:'moderate',
+    selectedRatio:1, workoutMode:'timer', timerInterval:null, TIMER_STORAGE_KEY:'scirun.activeTimer',
+    soundEnabled:false, workoutAudioContext:null, ...overrides,
+  };
+  vm.createContext(context);
+  vm.runInContext(fs.readFileSync(path.join(root,'timer-core.js'),'utf8'),context);
+  vm.runInContext(fs.readFileSync(path.join(root,'experience.js'),'utf8'),context);
+  return context;
+}
+
+test('the current scheduler accepts consecutive available days and excludes logged or unavailable dates', () => {
+  const context=experienceContext();
+  assert.deepEqual(Array.from(context.recommendedDays()),[1,2,3]);
+  context.state.blackoutDates=['2026-11-03','2026-11-04'];
+  assert.equal(context.dateKey(context.nextScheduledDate()),'2026-11-09');
+  context.state.history=[{date:'2026-11-09',status:'done'}];
+  const dates=Array.from(context.planDates(2),context.dateKey);
+  assert.deepEqual(dates,['2026-11-10','2026-11-11']);
+  context.state.profile.trainingDays=[0,1,2,3,4,5,6];
+  const spaced=Array.from(context.recommendedDays());
+  assert.equal(spaced.length,3);
+  assert.ok(spaced.every((day,i)=>((spaced[(i+1)%3]-day+7)%7)>=2));
+});
+
+test('the final stage extends gradually toward 5 km at calibrated speed', () => {
+  const context=experienceContext();
+  context.state.level=1;
+  assert.equal(context.buildSegments(1).find(s=>s.type==='run').seconds,2700);
+  context.state.history=[{status:'done',level:1,effort:'moderate',longestRunSeconds:2700}];
+  assert.equal(context.buildSegments(1).find(s=>s.type==='run').seconds,2730);
+  context.state.history.push({status:'done',level:1,effort:'easy',longestRunSeconds:2730});
+  assert.equal(context.buildSegments(1).find(s=>s.type==='run').seconds,2790);
+  assert.equal(context.buildSegments(1,.8).find(s=>s.type==='run').seconds,2232);
+});
+
+test('a failed pending-session write preserves a recoverable active timer', () => {
+  let persisted=0,rendered=0;
+  const context=experienceContext({
+    stopTimerInterval:()=>{}, workoutPosition:()=>({week:1,session:1}),newSessionId:()=> 'finished-1',
+    savePendingSession:()=>false,persistTimer:()=>{persisted++;return true;},setInterval:()=>77,
+    renderWorkoutPage:()=>{rendered++;},toast:()=>{},storageFailureText:()=> 'storage full'
+  });
+  context.currentTimer={level:0,segments:[{type:'run',seconds:60}],index:0,paused:false,
+    segmentEnd:context.Date.now()-1000,remaining:0,total:60,elapsed:0,skippedSegments:0};
+  context.endTimer(false);
+  assert.ok(context.currentTimer);
+  assert.equal(context.currentTimer.paused,true);
+  assert.equal(context.pendingSession,null);
+  assert.equal(persisted,1);
+  assert.equal(rendered,1);
+});
+
+test('completed skipped workouts save real total distance without requiring a continuous 5 km claim', () => {
+  const fields={actualDistance:{value:'5.20'},goalContinuous:{checked:false},feedbackError:{textContent:''}};
+  const context=experienceContext({
+    $:id=>fields[id],saveState:()=>true,clearPendingSession:()=>true,closeModal:()=>{},toast:()=>{},
+    storageFailureText:()=> 'storage full'
+  });
+  context.pendingSession={id:'skipped-done',level:0,completedNaturally:true,completion:.5,
+    elapsed:1000,week:1,scheduledDate:'2026-11-03',skippedRunSeconds:30,longestRunSeconds:30};
+  context.renderAll=()=>{};
+  context.showView=()=>{};
+  context.saveFeedback();
+  assert.equal(context.state.history.length,1);
+  assert.equal(context.state.history[0].status,'done');
+  assert.equal(context.state.history[0].completion,1);
+  assert.equal(context.state.history[0].distanceKm,5.2);
+  assert.equal(context.state.goalReached,false);
+  assert.equal(context.pendingSession,null);
 });
