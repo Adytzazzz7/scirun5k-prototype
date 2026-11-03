@@ -1055,3 +1055,45 @@ test('legacy pending workouts remain reportable before treadmill speeds have bee
   assert.equal(context.state.profile.walkSpeed,null);
   assert.equal(context.state.profile.firstSessionFeedbackDone,false);
 });
+
+
+test('workout visual colors anticipate the next phase without changing the timer', () => {
+  const viewContext={};
+  vm.createContext(viewContext);
+  vm.runInContext(fs.readFileSync(path.join(root,'workout-view.js'),'utf8'),viewContext);
+  const visual=viewContext.workoutVisualState;
+  const run={type:'run',seconds:60},walk={type:'walk',seconds:60};
+  assert.deepEqual(Array.from(visual(run,walk,11,false).rgb),[244,84,104]);
+  assert.equal(visual(run,walk,11,false).anticipating,false);
+  const ten=visual(run,walk,10,false);
+  assert.equal(ten.mix,0);
+  assert.equal(ten.anticipating,true);
+  assert.equal(ten.imminent,false);
+  const five=visual(run,walk,5,false);
+  assert.equal(five.mix,.5);
+  assert.equal(five.imminent,true);
+  assert.notDeepEqual(Array.from(five.rgb),[244,84,104]);
+  assert.notDeepEqual(Array.from(five.rgb),[54,211,139]);
+  assert.equal(visual(run,walk,1,false).mix,.9);
+  assert.deepEqual(Array.from(visual(run,walk,0,false).rgb),[54,211,139]);
+  assert.equal(run.seconds,60);
+  assert.equal(walk.seconds,60);
+});
+
+test('pause and recovery use mint without urgency, and the final phase has no false transition', () => {
+  const viewContext={};
+  vm.createContext(viewContext);
+  vm.runInContext(fs.readFileSync(path.join(root,'workout-view.js'),'utf8'),viewContext);
+  const visual=viewContext.workoutVisualState;
+  for(const type of ['warmup','cooldown','rest']){
+    assert.deepEqual(Array.from(visual({type},null,1,false).rgb),[88,230,199]);
+  }
+  const paused=visual({type:'run'},{type:'walk'},2,true);
+  assert.deepEqual(Array.from(paused.rgb),[88,230,199]);
+  assert.equal(paused.phase,'rest');
+  assert.equal(paused.mix,0);
+  assert.equal(paused.imminent,false);
+  const final=visual({type:'run'},null,1,false);
+  assert.equal(final.mix,0);
+  assert.equal(final.imminent,false);
+});
