@@ -322,3 +322,43 @@ test('timer restoration discards invalid snapshots and still resumes a valid tim
   assert.equal(resumed.intervalDelay(), 250);
   assert.equal(resumed.notices.length, 0);
 });
+
+test('loadState normalizes malformed persisted fields while preserving valid profile and history data', () => {
+  const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  const loadState = html.match(/function loadState\(\)\{[^\r\n]*\}/)?.[0];
+  assert.ok(loadState);
+
+  const stored = {
+    profile: { age: '30-39', trainingDays: { invalid: true } },
+    level: 99,
+    history: [
+      { id: 'valid', date: '2026-11-03', level: 2, status: 'done' },
+      null,
+      { id: 'bad-date', date: 'yesterday', level: 1, status: 'done' },
+      { id: 'bad-level', date: '2026-11-02', level: 99, status: 'done' },
+      ['not', 'a', 'session'],
+    ],
+    easyStreak: -2,
+    moderateStreak: '3',
+    hardStreak: 1.5,
+    reduceNext: 'false',
+    goalReached: 1,
+  };
+  const context = {
+    STAGES: Array.from({ length: 15 }, () => ({})),
+    localStorage: { getItem: () => JSON.stringify(stored) },
+  };
+  vm.createContext(context);
+  vm.runInContext(loadState, context);
+  const state = context.loadState();
+
+  assert.equal(state.profile.age, '30-39');
+  assert.deepEqual(Array.from(state.profile.trainingDays), [1, 3, 5]);
+  assert.equal(state.level, 0);
+  assert.deepEqual(Array.from(state.history, session => session.id), ['valid']);
+  assert.equal(state.easyStreak, 0);
+  assert.equal(state.moderateStreak, 0);
+  assert.equal(state.hardStreak, 0);
+  assert.equal(state.reduceNext, false);
+  assert.equal(state.goalReached, false);
+});
