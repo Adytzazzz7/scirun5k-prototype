@@ -1,7 +1,7 @@
 const { expect, test } = require('@playwright/test');
 const { createProfile, startWorkout } = require('./helpers.cjs');
 
-test('confirms skips, retains the workout when abandonment is cancelled, and discards on confirmation', async ({ page }) => {
+test('skips immediately, retains the workout when abandonment is cancelled, and discards on confirmation', async ({ page }) => {
   test.setTimeout(60_000);
   page.setDefaultTimeout(5_000);
   page.setDefaultNavigationTimeout(15_000);
@@ -11,12 +11,14 @@ test('confirms skips, retains the workout when abandonment is cancelled, and dis
   await createProfile(page);
   await startWorkout(page);
   const originalTimer = await page.evaluate(() => JSON.parse(localStorage.getItem('scirun.activeTimer')));
-  page.once('dialog', async dialog => { expect(dialog.message()).toContain('Sari peste'); await dialog.accept(); });
+  const dialogs=[];
+  page.on('dialog', async dialog => { dialogs.push(dialog.message()); await dialog.dismiss(); });
   await page.locator('#workoutSkip').click();
   await expect(page.locator('#workoutPause')).toBeVisible();
   const skippedTimer = await page.evaluate(() => JSON.parse(localStorage.getItem('scirun.activeTimer')));
   expect(skippedTimer.index).toBe(originalTimer.index + 1);
   expect(skippedTimer.skippedSegments).toBe(1);
+  expect(dialogs).toEqual([]);
 
   await page.locator('#workoutAbandon').click();
   await expect(page.locator('#confirmAbandon')).toBeVisible();
@@ -53,7 +55,6 @@ test('skipping a timer interval does not turn an otherwise completed workout int
   await startWorkout(page);
 
   for (let i = 0; i < 2; i += 1) {
-    page.once('dialog', dialog => dialog.accept());
     await page.locator('#workoutSkip').click();
   }
   await page.clock.fastForward(60 * 60 * 1000);
