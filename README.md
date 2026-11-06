@@ -1,4 +1,4 @@
-# SciRun 5K Pro
+# SciRun 5K
 
 Aplicație PWA pentru un program adaptiv de alergare pe bandă, cu obiectivul de a alerga 5 km continuu.
 
@@ -18,15 +18,17 @@ Sărirea intervalelor este imediată, fără confirmare, și modifică timerul. 
 
 ## Program și preferințe
 
-Din Setări se pot schimba frecvența și zilele disponibile, marca o zi sau o perioadă indisponibilă și elimina perioadele marcate. Programul continuă de unde a rămas.
+Din Cont → Program se pot schimba frecvența și zilele disponibile, marca o zi sau o perioadă indisponibilă și elimina perioadele marcate. Programul continuă de unde a rămas.
 
-Tema întunecată este implicită; sunt disponibile și tema luminoasă, română/engleză și semnale sonore. Navigarea este în partea de jos pe telefon și se ascunde în timpul antrenamentului.
+Tema întunecată Aurora Teal este implicită; există și varianta luminoasă, paleta Energetic, contrast înalt, română/engleză și comenzi pentru sunet și vibrații. Navigarea este în partea de jos pe telefon și se ascunde în timpul antrenamentului.
 
 ## Date și funcționare offline
 
-Datele se păstrează în browserul dispozitivului. Exportul și importul JSON sunt disponibile în Setări; un backup poate fi restaurat și de pe ecranul inițial. Resetarea șterge profilul, planul și istoricul local după confirmare.
+Datele se păstrează local pe dispozitiv. Exportul și importul JSON sunt disponibile în Cont → Date și copii de siguranță; un backup poate fi restaurat și de pe ecranul inițial. În APK, exportul folosește meniul Android de partajare pentru a salva fișierul JSON. Resetarea șterge profilul, planul și istoricul local după confirmare.
 
 PWA-ul poate fi instalat din browser și funcționează offline după prima încărcare prin HTTPS sau localhost. Nu măsoară automat distanța, pulsul sau GPS-ul.
+
+APK-ul Android conține resursele web local și pornește offline. Stocarea APK-ului este separată de cea a PWA-ului: dacă ai istoric în browser, exportă backupul JSON acolo și importă-l în APK înainte de a începe sesiuni noi. Copiile de siguranță Android sunt doar manuale, prin export și import JSON; backupul automat al sistemului și transferul datelor aplicației între dispozitive sunt dezactivate. Instalarea unei versiuni noi cu același ID de aplicație și aceeași cheie de semnare păstrează datele. Dezinstalarea șterge datele locale, așa că păstrează un backup JSON exportat într-un loc sigur.
 
 Sincronizarea prin cont și mementourile când aplicația este închisă necesită un serviciu de server și nu sunt implementate încă.
 
@@ -45,4 +47,15 @@ Pentru previzualizare locală, rulează `node tests/e2e/server.cjs` și deschide
 
 GitHub Actions rulează testele de logică și fluxurile Chromium. Regulile de adaptare rămân ipoteze de produs pentru acest prototip.
 
-Cercul timerului folosește straturi lichide decorative: mers verde, alergare roșie, încălzire/repaus/revenire mint. Culoarea trece spre următorul interval în ultimele 10 secunde, iar mișcarea se intensifică în ultimele 5. Mișcarea se oprește la pauză și respectă preferința sistemului pentru mișcare redusă.
+Cercul timerului se umple cu lichid de jos în sus, iar arcul exterior indică progresul. Alergarea, mersul, încălzirea și revenirea au culori distincte adaptate paletei. Sugestia pentru intervalul și viteza următoare apare cu 10 secunde înainte; cercul pulsează în ultimele 5 secunde. Mișcarea se oprește la pauză și respectă preferința sistemului pentru mișcare redusă.
+
+## APK Android personal
+
+Sunt necesare JDK 21 și Android SDK 36. Pe Windows, din rădăcina proiectului:
+
+```powershell
+npm install
+npm run android:apk
+```
+
+Comanda construiește resursele web, sincronizează Capacitor, semnează APK-ul release și verifică semnătura. Rezultatul pentru versiunea curentă este `dist/SciRun-5K-0.1.1-android.apk` (ID `com.scirun.personal5k`); numele fișierului este preluat din metadatele buildului. Cheia personală și parola sunt create la prima compilare în `.android-toolchain/scirun-personal.jks` și `.android-toolchain/signing.properties`, ignorate de Git. Păstrează o copie sigură a ambelor fișiere: fără ele nu poți instala o actualizare peste aceeași aplicație păstrând istoricul. Pentru testare locală există și `npm run android:apk:debug`.

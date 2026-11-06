@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">SciRun 5K</string>
+    <string name="title_activity_main">SciRun 5K</string>
+    <string name="package_name">com.scirun.personal5k</string>
+    <string name="custom_url_scheme">com.scirun.personal5k</string>
+</resources>

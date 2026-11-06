@@ -37,8 +37,8 @@ test('creates a treadmill profile, restores a paused workout, and resets local d
 
   await page.locator('#workoutBack').click();
   await expect(page.locator('#dashboard')).toHaveClass(/active/);
-  await page.locator('#nav-settings').click();
-  await expect(page.locator('#settings')).toHaveClass(/active/);
+  await page.locator('#nav-account').click();
+  await expect(page.locator('#account')).toHaveClass(/active/);
   page.once('dialog', dialog => dialog.accept());
   await page.locator('#resetApp').click();
   await expect(page.locator('#onboarding')).toHaveClass(/active/);

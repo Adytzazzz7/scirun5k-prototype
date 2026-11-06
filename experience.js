@@ -4,6 +4,9 @@
   const originalImportBackupFile = importBackupFile;
   const originalBuildSegments = buildSegments;
   const originalTogglePause = togglePause;
+  let vibrationEnabled = false;
+  let highContrastEnabled = false;
+  let workoutVisibleSince = 0;
   const dateLabel = (value, options = { day: 'numeric', month: 'short' }) => {
     const date = value instanceof Date ? value : new Date(value);
     return Number.isFinite(date.getTime()) ? new Intl.DateTimeFormat(lang === 'ro' ? 'ro-RO' : 'en-GB', options).format(date) : '—';
@@ -18,15 +21,17 @@
   };
 
 
-  Object.assign(I18N.ro, { navHome: 'Panou', navProgress: 'Istoric', navProfile: 'Setări', effortExhausted: 'Epuizant', setupTitle: 'Începem cu nivelul tău actual.' });
-  Object.assign(I18N.en, { navHome: 'Dashboard', navProgress: 'History', navProfile: 'Settings', effortExhausted: 'Exhausting', setupTitle: 'Start with your current level.' });
+  Object.assign(I18N.ro, { navHome: 'Panou', navProgress: 'Istoric', navProfile: 'Setări', navAccount: 'Cont', effortExhausted: 'Epuizant', setupTitle: 'Începem cu nivelul tău actual.' });
+  Object.assign(I18N.en, { navHome: 'Dashboard', navProgress: 'History', navProfile: 'Settings', navAccount: 'Account', effortExhausted: 'Exhausting', setupTitle: 'Start with your current level.' });
 
   function experienceStrings() {
     Object.assign(effortNames, { veryEasy: t('effortVeryEasy'), easy: t('effortEasy'), moderate: t('effortModerate'), hard: t('effortHard'), exhausted: txt('Epuizant', 'Exhausting') });
     document.querySelectorAll('[data-exp-ro]').forEach(el => {
       el.textContent = lang === 'ro' ? el.dataset.expRo : el.dataset.expEn;
     });
-    document.querySelectorAll('[data-exp-ro]').forEach(el => { el.textContent = lang === 'ro' ? el.dataset.expRo : el.dataset.expEn; });
+    $('lang-ro')?.setAttribute?.('aria-pressed', String(lang === 'ro'));
+    $('lang-en')?.setAttribute?.('aria-pressed', String(lang === 'en'));
+    document.querySelector?.('.lang-switch')?.setAttribute('aria-label', txt('Limba', 'Language'));
     $('setupStepLabel').textContent = txt('Pasul ' + ( $('setupStepTwo').classList.contains('hidden') ? '1' : '2') + ' din 2',
       'Step ' + ( $('setupStepTwo').classList.contains('hidden') ? '1' : '2') + ' of 2');
     $('setupStepDot1').classList.toggle('current', $('setupStepTwo').classList.contains('hidden'));
@@ -66,11 +71,49 @@
   }
   setupForm = setupExperienceForm;
 
+  function updateDashboardTimerPreview() {
+    const preview = $('dashboardTimerPreview');
+    if (!preview) return;
+    preview.classList.toggle('hidden', !currentTimer);
+    if (!currentTimer) return;
+    const segment = currentTimer.segments[currentTimer.index];
+    if (!segment) return;
+    const remaining = currentTimer.paused ? currentTimer.remaining : Math.max(0, (currentTimer.segmentEnd - Date.now()) / 1000);
+    const percent = Math.min(100, Math.max(0, (segment.seconds - remaining) / segment.seconds * 100));
+    const visual = workoutVisualState(segment, currentTimer.segments[currentTimer.index + 1], remaining, currentTimer.paused);
+    const dial = $('dashboardTimerDial');
+    dial.style.setProperty('--timer-progress', percent + '%');
+    dial.style.setProperty('--phase-color', 'rgb(' + visual.rgb.join(', ') + ')');
+    dial.style.setProperty('--phase-rgb', visual.rgb.join(', '));
+    dial.style.setProperty('--liquid-level', percent + '%');
+    dial.dataset.paused = String(currentTimer.paused);
+    dial.dataset.imminent = String(visual.imminent);
+    $('dashboardTimerRemaining').textContent = formatSeconds(remaining);
+    $('dashboardTimerPhase').textContent = workoutIntervalName(segment);
+    $('dashboardTimerStatus').textContent = currentTimer.paused
+      ? txt('ÎN PAUZĂ', 'PAUSED') : txt('ÎN DESFĂȘURARE', 'IN PROGRESS');
+  }
+
+  function updateDashboardAction() {
+    const label = $('heroStartLabel');
+    if (!label) return;
+    label.textContent = currentTimer ? txt('Revino la sesiune', 'Return to workout')
+      : pendingSession ? txt('Finalizează feedbackul', 'Finish feedback')
+      : txt('Începe sesiunea', 'Start workout');
+    const destination = currentTimer ? $('dashboardTimerAction') : $('heroActionSlot');
+    if (destination && $('heroStart').parentElement !== destination) destination.appendChild($('heroStart'));
+    updateDashboardTimerPreview();
+  }
+
   function showExperienceView(id) {
+    if (id === 'workout' && !document.body.classList.contains('workout-active')) {
+      workoutVisibleSince = Date.now();
+    }
     document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === id));
     document.querySelectorAll('#nav button').forEach(b => b.classList.toggle('active', b.dataset.view === id));
     document.body.classList.toggle('workout-active', id === 'workout');
     document.body.classList.toggle('setup-active', id === 'onboarding');
+    if (id === 'dashboard') updateDashboardAction();
     if (id !== 'workout') window.scrollTo({ top: 0, behavior: 'auto' });
     manageWakeLock();
   }
@@ -115,6 +158,7 @@
     if (!['known','none','unknown'].includes(runStatus) || (runStatus === 'known' && (!Number.isFinite(runMinutes) || runMinutes < 0.1 || runMinutes > 180))) { $('setupBack').click(); continueSetup(); return false; }
     const previous = JSON.parse(JSON.stringify(state));
     const profile = {
+      ...(state.profile || {}),
       runStatus, runMinutes, safetyAnswer: 'no', trainingDays: days,
       sessionsPerWeek: frequency, startDate: state.profile?.startDate || dateKey(new Date()),
       walkSpeed: state.profile?.walkSpeed ?? null, runSpeed: state.profile?.runSpeed ?? null,
@@ -256,8 +300,9 @@
   function renderRecentSessions() {
     const target = $('recentSessions');
     const recent = [...state.history].sort((a, b) => String(b.completedAt || b.date).localeCompare(String(a.completedAt || a.date))).slice(0, 2);
+    target.closest('.recent-card').classList.toggle('hidden', recent.length === 0);
     if (!recent.length) {
-      target.innerHTML = '<div class="chart-empty">' + txt('Încă nu ai sesiuni salvate.', 'No sessions saved yet.') + '</div>';
+      target.innerHTML = '';
       return;
     }
     target.innerHTML = recent.map(s => '<div class="recent-session"><div><strong>' + dateLabel(s.completedAt || s.date, { day: 'numeric', month: 'short', year: 'numeric' }) + '</strong><span>' + (s.status === 'done' ? txt('COMPLETĂ', 'COMPLETE') : txt('PARȚIALĂ', 'PARTIAL')) + '</span><small>' + (sessionDistance(s) === null ? txt('Distanță necompletată', 'No distance entered') : kmText(sessionDistance(s))) + ' · ' + effortNames[s.effort || 'moderate'] + '</small></div><b>' + (s.effort ? '✓' : '') + '</b></div>').join('');
@@ -289,6 +334,7 @@
 
   function renderDashboard() {
     if (!state.profile) return;
+    updateDashboardAction();
     const stageData = STAGES[Math.min(STAGES.length - 1, state.level)];
     const estimate = estimateReadyDate();
     const upcoming = experienceNextDate();
@@ -300,7 +346,6 @@
     $('nextWorkoutTitle').textContent = stageData.name[lang];
     $('nextWorkoutDesc').textContent = stageData.desc[lang];
     $('nextWeekTag').textContent = txt('Săptămâna ' + weeksOut, 'Week ' + weeksOut);
-    $('workoutTypeTag').textContent = stageData.type === 'continuous' ? txt('ALERGARE CONTINUĂ', 'CONTINUOUS RUN') : txt('INTERVALE PE TIMP', 'TIMED INTERVALS');
     const segments = buildSegments(state.level, state.reduceNext ? 0.8 : 1);
     $('workoutDuration').textContent = formatSeconds(segments.reduce((sum, item) => sum + item.seconds, 0));
     $('suggestedSpeed').textContent = speedFor('run') ? speedFor('run').toFixed(1) + ' km/h' : txt('La prima sesiune', 'First workout');
@@ -331,17 +376,54 @@
     target.innerHTML = entries.map(s => '<article class="history-entry"><div class="history-entry-head"><strong>' + dateLabel(s.completedAt || s.date, { day: 'numeric', month: 'short', year: 'numeric' }) + '</strong><span class="status ' + s.status + '">' + (s.status === 'done' ? txt('Completă', 'Complete') : txt('Parțială', 'Partial')) + '</span></div><div class="history-entry-data"><span>' + (sessionDistance(s) === null ? txt('Distanță necompletată', 'Distance not entered') : kmText(sessionDistance(s))) + '</span><span>' + formatSeconds(s.elapsed || 0) + '</span><span>' + effortNames[s.effort || 'moderate'] + '</span></div></article>').join('');
   }
 
+  const palettes = ['standard', 'energetic'];
+  function applyPalette(palette, persist = true) {
+    if (!palettes.includes(palette)) return false;
+    if (persist && !storageSet('scirun.palette', palette)) return false;
+    document.documentElement.dataset.palette = palette;
+    document.querySelectorAll('[data-palette-choice]').forEach(button => {
+      button.setAttribute('aria-pressed', String(button.dataset.paletteChoice === palette));
+    });
+    applyTheme(document.documentElement.dataset.theme || 'dark', false);
+    return true;
+  }
+
+  function applyHighContrast(enabled, persist = true) {
+    if (persist && !storageSet('scirun.highContrast', String(enabled))) return false;
+    highContrastEnabled = enabled;
+    document.documentElement.dataset.contrast = enabled ? 'high' : 'normal';
+    renderPreferenceToggle('contrastToggle', enabled, txt('Contrast ridicat', 'High contrast'));
+    return true;
+  }
+
   function renderSettings() {
     if (!state.profile) return;
+    applyPalette(document.documentElement.dataset.palette || 'standard', false);
+    renderPreferenceToggle('contrastToggle', highContrastEnabled, txt('Contrast ridicat', 'High contrast'));
     $('settingFrequency').value = String(state.profile.sessionsPerWeek || 3);
     document.querySelectorAll('#scheduleDays input').forEach(c => c.checked = (state.profile.trainingDays || []).includes(Number(c.value)));
-    $('soundPreference').checked = soundEnabled;
+    renderPreferenceToggle('soundPreference', soundEnabled, txt('Semnale sonore', 'Sound cues'));
+    const vibrationPreference = $('vibrationPreference');
+    if (vibrationPreference) {
+      const supported = supportsWorkoutVibration();
+      renderPreferenceToggle('vibrationPreference', vibrationEnabled, txt('Vibrații', 'Vibration'));
+      vibrationPreference.disabled = !supported;
+      $('vibrationUnavailable').classList.toggle('hidden', supported);
+    }
     const unavailable = state.blackoutDates || [];
     $('clearUnavailable').classList.toggle('hidden', unavailable.length === 0);
     $('unavailableList').innerHTML = unavailable.length
       ? '<small>' + txt('Zile excluse: ', 'Unavailable dates: ') + unavailable.map(d => dateLabel(d)).join(', ') + '</small>'
       : '<small>' + txt('Nu ai marcat perioade indisponibile.', 'No unavailable dates marked.') + '</small>';
     if ($('profileInfo')) $('profileInfo').textContent = '';
+  }
+
+  function renderPreferenceToggle(id, enabled, label) {
+    const button = $(id);
+    if (!button) return;
+    button.setAttribute('aria-pressed', String(enabled));
+    button.setAttribute('aria-label', label + ': ' + txt(enabled ? 'pornit' : 'oprit', enabled ? 'on' : 'off'));
+    button.querySelector('.preference-toggle-state').textContent = txt(enabled ? 'Pornit' : 'Oprit', enabled ? 'On' : 'Off');
   }
 
   function renderAllExperience() {
@@ -383,12 +465,16 @@
   }
 
   function addUnavailableRange() {
+    const message = $('unavailableMessage');
+    message.textContent = '';
+    message.classList.remove('form-error');
     const fromValue = $('unavailableStart').value;
     const toValue = $('unavailableEnd').value || fromValue;
     const from = new Date(fromValue + 'T00:00:00');
     const to = new Date(toValue + 'T00:00:00');
     if (!fromValue || !Number.isFinite(from.getTime()) || !Number.isFinite(to.getTime()) || to < from) {
-      $('scheduleSaveMessage').textContent = txt('Alege o perioadă validă.', 'Choose a valid date range.');
+      message.textContent = txt('Alege o perioadă validă.', 'Choose a valid date range.');
+      message.classList.add('form-error');
       return;
     }
     const snapshot = JSON.stringify(state);
@@ -400,9 +486,10 @@
     }
     state.blackoutDates = days.sort();
     state.nextSessionDate = dateKey(experienceNextDate());
-    if (!saveState()) { state = JSON.parse(snapshot); renderAll(); $('scheduleSaveMessage').textContent = storageFailureText(); return; }
+    if (!saveState()) { state = JSON.parse(snapshot); renderAll(); message.textContent = storageFailureText(); message.classList.add('form-error'); return; }
     const next = experienceNextDate();
     renderAll();
+    message.textContent = txt('Perioada a fost marcată.', 'Unavailable period saved.');
     if (old >= from && old <= to) toast(txt('Sesiunea a fost reprogramată pentru ' + weekdayName(next.getDay(), false) + '.', 'The workout has been rescheduled for ' + weekdayName(next.getDay(), false) + '.'));
   }
 
@@ -514,6 +601,28 @@
     } catch (e) {}
   };
 
+  function supportsWorkoutVibration() {
+    return window.SciRunNative?.isNative === true || (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function');
+  }
+
+  function shouldSignalWorkout(boundary, now) {
+    // A late tick can catch up to the right phase without announcing a past event.
+    return boundary >= workoutVisibleSince && now - boundary <= 1_000
+      && workoutMode === 'timer' && document.visibilityState === 'visible'
+      && document.querySelector('.view.active')?.id === 'workout';
+  }
+
+  function signalWorkout(target, kind, pattern) {
+    if (target) {
+      target.dataset.workoutSignal = kind;
+      setTimeout(() => { delete target.dataset.workoutSignal; }, 1_250);
+    }
+    if (vibrationEnabled && supportsWorkoutVibration()) {
+      if (window.SciRunNative?.isNative) window.SciRunNative.vibrate(pattern).catch(() => {});
+      else try { navigator.vibrate(pattern); } catch {}
+    }
+  }
+
   togglePause = function () {
     originalTogglePause();
     if (currentTimer) playWorkoutCue(currentTimer.paused ? 'rest' : currentTimer.segments[currentTimer.index]?.type || 'run');
@@ -521,20 +630,33 @@
 
   tickTimer = function () {
     if (!currentTimer || currentTimer.paused) return;
-    const progress = SciRunTimerCore.advanceTimer(currentTimer, Date.now());
-    if (progress.complete) { endTimer(false); return; }
+    const now = Date.now();
+    const previousIndex = currentTimer.index;
+    const boundary = currentTimer.segmentEnd;
+    const progress = SciRunTimerCore.advanceTimer(currentTimer, now);
+    if (progress.complete) {
+      endTimer(false, currentTimer.index === previousIndex && shouldSignalWorkout(boundary, now));
+      return;
+    }
     if (progress.changed) {
       persistTimer();
       playWorkoutCue(currentTimer.segments[currentTimer.index]?.type || 'run');
-      if (document.querySelector('.view.active')?.id === 'workout') renderWorkoutPage();
+      if (document.querySelector('.view.active')?.id === 'workout') {
+        const signal = currentTimer.index === previousIndex + 1 && shouldSignalWorkout(boundary, now);
+        renderWorkoutPage();
+        if (signal) signalWorkout($('workoutRing'), 'phase', 55);
+      }
+      if (document.querySelector('.view.active')?.id === 'dashboard') updateDashboardTimerPreview();
       return;
     }
     updateWorkoutPage();
+    if (document.querySelector('.view.active')?.id === 'dashboard') updateDashboardTimerPreview();
   };
 
   skipCurrentSegment = function () {
     if (!currentTimer) return;
     const now = Date.now();
+    const signal = !currentTimer.paused && shouldSignalWorkout(now, now);
     const result = SciRunTimerCore.skipSegment(currentTimer, now);
     if (result.complete) {
       if (result.skipped) currentTimer.skippedElapsedSeconds = (currentTimer.skippedElapsedSeconds || 0) + Math.max(0, currentTimer.segments.at(-1).seconds - (result.elapsedSeconds || 0));
@@ -548,9 +670,10 @@
     persistTimer();
     playWorkoutCue(currentTimer.segments[currentTimer.index]?.type || 'run');
     renderWorkoutPage();
+    if (signal) signalWorkout($('workoutRing'), 'phase', 55);
   };
 
-  endTimer = function (interrupted = false) {
+  endTimer = function (interrupted = false, signalCompletion = false) {
     if (!currentTimer) return;
     const timer = currentTimer;
     const progress = SciRunTimerCore.advanceTimer(timer, Date.now());
@@ -584,6 +707,9 @@
     currentTimer = null;
     persistTimer();
     showWorkoutFeedback();
+    if (signalCompletion) {
+      signalWorkout(document.querySelector('.workout-feedback-summary'), 'complete', [55, 75, 55]);
+    }
   };
 
   saveFeedback = function () {
@@ -603,7 +729,8 @@
       return;
     }
     const completedFully = pendingSession.completedNaturally === true;
-    const needsSpeedFeedback = state.profile.firstSessionFeedbackDone !== true && Number(state.profile.runSpeed) > 0 && Number(state.profile.walkSpeed) > 0;
+    const earnedTrainingCredit = completedFully && !(pendingSession.skippedRunSeconds > 0);
+    const needsSpeedFeedback = earnedTrainingCredit && state.profile.firstSessionFeedbackDone !== true && Number(state.profile.runSpeed) > 0 && Number(state.profile.walkSpeed) > 0;
     const runFeel = needsSpeedFeedback ? $('runPaceFeel')?.value || '' : '';
     const walkFeel = needsSpeedFeedback ? $('walkPaceFeel')?.value || '' : '';
     if (needsSpeedFeedback && (!runFeel || !walkFeel)) {
@@ -619,7 +746,7 @@
       state.profile.walkSpeed = Math.min(9, Math.max(2, Math.round((Number(state.profile.walkSpeed) + adjust(walkFeel)) * 10) / 10));
       state.profile.firstSessionFeedbackDone = true;
     }
-    if (completedFully) {
+    if (earnedTrainingCredit) {
       if (effort === 'exhausted') {
         state.level = Math.max(0, state.level - 1); state.reduceNext = true;
         state.easyStreak = 0; state.moderateStreak = 0; state.hardStreak = 0;
@@ -643,6 +770,10 @@
           state.level++; state.moderateStreak = 0; note = t('nextStepModerate');
         } else note = t('repeatStep');
       }
+    } else if (completedFully) {
+      state.easyStreak = 0; state.moderateStreak = 0; state.hardStreak = 0;
+      note = txt('Sesiune încheiată cu alergare sărită. Nivelul rămâne neschimbat.',
+        'Workout finished with skipped running. Your level stays the same.');
     }
     if (Number(state.profile.walkSpeed) > 0 && Number(state.profile.runSpeed) > 0) state.profile.walkSpeed = Math.min(Number(state.profile.walkSpeed), Number(state.profile.runSpeed));
     const scheduledDate = pendingSession.scheduledDate || dateKey(experienceNextDate());
@@ -655,7 +786,7 @@
       runFeel: runFeel || null, walkFeel: walkFeel || null,
       skippedRunSeconds: pendingSession.skippedRunSeconds || 0,
       longestRunSeconds: pendingSession.longestRunSeconds || STAGES[pendingSession.level].run,
-      goalContinuous5k: distance >= 5 && completedFully && $('goalContinuous')?.checked === true
+      goalContinuous5k: distance >= 5 && earnedTrainingCredit && $('goalContinuous')?.checked === true
     });
     if (runFeel) state.profile.firstSessionFeedbackDone = true;
     if (state.history.at(-1).goalContinuous5k) {
@@ -677,7 +808,8 @@
     workoutMode = 'timer';
     renderAll();
     showView('dashboard');
-    toast(pendingCleared ? note : storageFailureText());
+    if (pendingCleared) toast(txt('Sesiune salvată. ', 'Workout saved. ') + note, 'success');
+    else toast(storageFailureText());
   };
 
   function resetExperience() {
@@ -693,11 +825,6 @@
     $('setupEyebrow')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
-  function resumeFromZero() {
-    const btn = $('restartFromZero');
-    if (btn) btn.onclick = resetExperience;
-  }
-
   function updateGoalCelebration() {
     const box = $('goalCelebration');
     if (!box) return;
@@ -705,7 +832,6 @@
     if (!state.goalReached) return;
     $('goalMedalText').textContent = txt('Felicitări! Ai alergat 5 km continuu.', 'Congratulations! You ran 5 km continuously.');
     $('goalMedalMeta').textContent = txt(kmText(state.achievementDistance || 5) + ' · ' + dateLabel(state.goalDate || new Date()), kmText(state.achievementDistance || 5) + ' · ' + dateLabel(state.goalDate || new Date()));
-    resumeFromZero();
   }
 
   importBackupFile = async function(file) {
@@ -715,21 +841,36 @@
 
   function bindExperienceControls() {
     $('restoreSetupBackup').onclick = () => { $('setupImportError').textContent = ''; $('importError').textContent = ''; $('importFile').click(); };
+    $('restoreSetupPreImport').onclick = restorePreImportBackup;
     $('setupContinue').onclick = continueSetup;
     $('setupBack').onclick = () => { $('setupStepTwo').classList.add('hidden'); $('setupStepOne').classList.remove('hidden'); experienceStrings(); };
     $('setupFrequency')?.addEventListener('change', experienceStrings);
     $('saveSchedule').onclick = saveScheduleSettings;
     $('addUnavailable').onclick = addUnavailableRange;
     $('clearUnavailable').onclick = () => { const previous = state.blackoutDates, previousNext = state.nextSessionDate; state.blackoutDates = []; state.nextSessionDate = dateKey(experienceNextDate()); if (!saveState()) { state.blackoutDates = previous; state.nextSessionDate = previousNext; return; } renderAll(); };
-    $('editScheduleShortcut').onclick = () => { showView('settings'); $('settingFrequency').scrollIntoView({ behavior: 'smooth', block: 'center' }); };
-    $('soundPreference').onchange = () => {
-      soundEnabled = $('soundPreference').checked;
-      storageSet('scirun.timerSound', soundEnabled ? 'true' : 'false');
-      toast(txt('Preferința pentru semnale sonore a fost salvată.', 'Sound preference saved.'));
+    $('soundPreference').onclick = () => {
+      const next = !soundEnabled;
+      if (!storageSet('scirun.timerSound', String(next))) return;
+      soundEnabled = next;
+      renderPreferenceToggle('soundPreference', soundEnabled, txt('Semnale sonore', 'Sound cues'));
+      preferenceTapFeedback();
+    };
+    $('contrastToggle').onclick = () => {
+      if (applyHighContrast(!highContrastEnabled)) preferenceTapFeedback();
+    };
+    document.querySelectorAll('[data-palette-choice]').forEach(button => button.addEventListener('click', () => {
+      if (applyPalette(button.dataset.paletteChoice)) preferenceTapFeedback();
+    }));
+    const vibrationPreference = $('vibrationPreference');
+    if (vibrationPreference) vibrationPreference.onclick = () => {
+      const next = !vibrationEnabled;
+      if (!storageSet('scirun.timerVibration', String(next))) return;
+      vibrationEnabled = next;
+      renderPreferenceToggle('vibrationPreference', vibrationEnabled, txt('Vibrații', 'Vibration'));
+      preferenceTapFeedback();
     };
     document.querySelectorAll('[data-go="history"]').forEach(b => b.onclick = () => showView('history'));
     $('resetApp').onclick = null;
-    $('restartFromZero')?.addEventListener('click', resetExperience);
     document.addEventListener('click', event => {
       const button = event.target.closest('button');
       if (!button) return;
@@ -739,8 +880,6 @@
         event.preventDefault(); event.stopImmediatePropagation(); resetExperience();
       } else if (button.id === 'editProfile') {
         event.preventDefault(); event.stopImmediatePropagation(); openEditProfile();
-      } else if (button.id === 'restartFromZero') {
-        event.preventDefault(); event.stopImmediatePropagation(); resetExperience();
       }
     }, true);
     window.addEventListener('pagehide', () => { persistTimer(); wakeLockDesired = false; if (wakeLock) { wakeLock.release().catch(() => {}); wakeLock = null; } });
@@ -749,18 +888,22 @@
         wakeLockDesired = false;
         persistTimer();
         if (wakeLock) { wakeLock.release().catch(() => {}); wakeLock = null; }
-      } else manageWakeLock();
+      } else {
+        workoutVisibleSince = Date.now();
+        manageWakeLock();
+      }
     });
   }
 
   function initExperience() {
+    vibrationEnabled = storageGet('scirun.timerVibration') === 'true';
+    applyHighContrast(storageGet('scirun.highContrast') === 'true', false);
     if (storageGet('scirun.timerSound') === null) {
       soundEnabled = true;
       storageSet('scirun.timerSound', 'true');
     } else soundEnabled = storageGet('scirun.timerSound') === 'true';
     state.blackoutDates = Array.isArray(state.blackoutDates) ? state.blackoutDates : [];
     if (state.profile) {
-      delete state.profile.age; delete state.profile.sex; delete state.profile.steps; delete state.profile.safetyAck;
       if (state.profile.safetyAnswer !== 'no') state.profile.safetyAnswer = '';
       if (!state.profile.sessionsPerWeek) state.profile.sessionsPerWeek = Math.min(3, state.profile.trainingDays?.length || 3);
       if (!Array.isArray(state.profile.trainingDays) || state.profile.trainingDays.length < state.profile.sessionsPerWeek) state.profile.trainingDays = [1, 3, 5];
@@ -769,12 +912,17 @@
       if (typeof state.profile.firstSessionFeedbackDone !== 'boolean') state.profile.firstSessionFeedbackDone = false;
       saveState();
     }
+    const savedPalette = storageGet('scirun.palette');
+    applyPalette(palettes.includes(savedPalette) ? savedPalette : 'standard', false);
+    if (savedPalette && !palettes.includes(savedPalette)) storageSet('scirun.palette', 'standard');
     const savedTheme = storageGet('scirun.theme');
     applyTheme(savedTheme || 'dark', !savedTheme);
     setupExperienceForm(state.profile);
     experienceStrings();
     bindExperienceControls();
     applyLanguage();
+    updateStorageRecoveryNotice();
+    updatePreImportAction();
     if (state.profile && state.profile.safetyAnswer === 'no') { renderAll(); showView('dashboard'); }
     else showView('onboarding');
     if (!restorePendingSession()) restoreTimer();
@@ -792,6 +940,7 @@
         }
       }
     }
+    try { if (sessionStorage.getItem('scirun.importNotice') === '1') { sessionStorage.removeItem('scirun.importNotice'); toast(t('importDone')); } } catch (e) {}
   }
 
   window.addEventListener('load', initExperience, { once: true });
