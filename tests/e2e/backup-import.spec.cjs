@@ -83,6 +83,7 @@ test('does not overwrite existing data when backup storage fails', async ({ page
   await createProfile(page);
   await page.locator('#nav-account').click();
   const originalState = await page.evaluate(() => localStorage.getItem('scirun.state'));
+  const originalSnapshot = await page.evaluate(() => localStorage.getItem('scirun.preImportBackup'));
   await page.evaluate(() => {
     const originalSetItem = Storage.prototype.setItem;
     Storage.prototype.setItem = function (key, value) {
@@ -103,6 +104,7 @@ test('does not overwrite existing data when backup storage fails', async ({ page
 
   await expect(page.locator('#importError')).toContainText('Stocarea locală');
   expect(await page.evaluate(() => localStorage.getItem('scirun.state'))).toBe(originalState);
+  expect(await page.evaluate(() => localStorage.getItem('scirun.preImportBackup'))).toBe(originalSnapshot);
   await page.reload();
   await expect(page.locator('#dashboard')).toHaveClass(/active/);
   const persisted = await page.evaluate(() => JSON.parse(localStorage.getItem('scirun.state')));
@@ -168,7 +170,15 @@ test('restores the actual exported profile and history after reset', async ({ pa
   ]);
   expect(download.suggestedFilename()).toBe('scirun5k-personal-data.json');
   const backupContents = await page.evaluate(() => window.__scirunExportBlob.text());
-  expect(JSON.parse(backupContents)).toEqual(expectedState);
+  const exportedBackup = JSON.parse(backupContents);
+  expect(exportedBackup).toMatchObject({
+    app: 'scirun5k', version: 2, state: expectedState,
+    activeTimer: null, pendingSession: null,
+  });
+  expect(exportedBackup.preferences).toEqual({
+    lang: 'ro', theme: 'dark', palette: 'standard', highContrast: false,
+    timerSound: true, timerVibration: false,
+  });
 
   page.once('dialog', dialog => dialog.accept());
   await page.locator('#resetApp').click();

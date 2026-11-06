@@ -119,16 +119,23 @@ function harness(options = {}) {
   if (pending) values.set('scirun.pendingSession', JSON.stringify(pending));
   let postSnapshotWrites = 0;
   let failSecondImportWrite = false;
+  let failStateWrite = false;
+  let failRollbackStateWrite = false;
   let sharedJson = null;
   const toasts = [];
   const elements = {
     importFile: { value: 'selected' }, importError: { textContent: '' },
     setupImportError: { textContent: '' },
     restorePreImport: { classList: { toggle: () => {} } },
+    restoreSetupPreImport: { classList: { toggle: () => {} } },
   };
   const storage = {
     getItem: key => values.has(key) ? values.get(key) : null,
     setItem(key, value) {
+      if (key === 'scirun.state' && failStateWrite) throw new Error('quota exceeded');
+      if (key === 'scirun.state' && failRollbackStateWrite && postSnapshotWrites >= 2) {
+        throw new Error('quota exceeded');
+      }
       if (key !== PRE_IMPORT_KEY && failSecondImportWrite && ++postSnapshotWrites === 2) {
         throw new Error('quota exceeded');
       }
@@ -201,6 +208,8 @@ function harness(options = {}) {
   return {
     context, values, elements, toasts, shared: () => sharedJson,
     failSecondImportWrite: () => { failSecondImportWrite = true; },
+    failStateWrite: () => { failStateWrite = true; },
+    failRollbackStateWrite: () => { failRollbackStateWrite = true; },
   };
 }
 
@@ -328,7 +337,7 @@ test('failed restoration leaves the current history and recovery copy intact', a
   incoming.level = 4;
   await h.context.importBackupFile(fileFrom(JSON.stringify(incoming)).file);
   const before = new Map(h.values);
-  h.failSecondImportWrite();
+  h.failStateWrite();
   assert.equal(h.context.restorePreImportBackup(), false);
   assert.deepEqual([...h.values].sort(), [...before].sort());
 });
@@ -343,7 +352,7 @@ test('an oversized file is rejected before its contents are read or stored', asy
   assert.notEqual(h.elements.importError.textContent, '');
 });
 
-test('a failed import write rolls back state and preferences while retaining the recovery snapshot', async () => {
+test('a failed import write restores state, preferences, and the previous recovery copy', async () => {
   const h = harness();
   const before = new Map(h.values);
   const importedState = state();
@@ -354,15 +363,30 @@ test('a failed import write rolls back state and preferences while retaining the
     importedState, importedPrefs, null, pendingSession(), NOW);
   h.failSecondImportWrite();
   await h.context.importBackupFile(fileFrom(JSON.stringify(bundle)).file);
-  const recovery = h.values.get(PRE_IMPORT_KEY);
-  assert.ok(recovery);
-  assert.equal(containsRaw(JSON.parse(recovery), before.get('scirun.state')), true);
-  h.values.delete(PRE_IMPORT_KEY);
   assert.deepEqual([...h.values].sort(), [...before].sort());
   assert.equal(JSON.stringify(h.context.state), JSON.stringify(state()));
   assert.equal(h.context.currentTimer, null);
   assert.equal(h.context.pendingSession, null);
   assert.notEqual(h.elements.importError.textContent, '');
+});
+
+test('failed rollback blocks later saves and exports the original history', async () => {
+  const h = harness();
+  const originalRaw = h.values.get('scirun.state');
+  const incoming = state();
+  incoming.level = 4;
+  const bundle = h.context.SciRunStateBackup.createBundle(
+    incoming, preferences(), null, pendingSession(), NOW);
+  h.failSecondImportWrite();
+  h.failRollbackStateWrite();
+  await h.context.importBackupFile(fileFrom(JSON.stringify(bundle)).file);
+
+  assert.equal(h.context.stateStorageCorrupt, true);
+  assert.equal(h.context.stateRecoveryRaw, originalRaw);
+  assert.equal(h.context.saveState(), false);
+  assert.equal(containsRaw(JSON.parse(h.values.get(PRE_IMPORT_KEY)), originalRaw), true);
+  assert.equal(await h.context.exportData(), true);
+  assert.equal(JSON.parse(h.shared()).keys['scirun.state'], originalRaw);
 });
 
 test('an import read failure preserves every stored value', async () => {
