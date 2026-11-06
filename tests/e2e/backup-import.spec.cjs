@@ -1,5 +1,4 @@
 const { expect, test } = require('@playwright/test');
-const fs = require('node:fs/promises');
 const { createProfile, startWorkout, submitWorkoutFeedback } = require('./helpers.cjs');
 
 async function selectBackup(page, contents, name = 'backup.json') {
@@ -22,8 +21,8 @@ test('rejects invalid backups and restores a valid backup after confirmation', a
   page.on('pageerror', error => pageErrors.push(error.message));
 
   await createProfile(page);
-  await page.locator('#nav-settings').click();
-  await expect(page.locator('#settings')).toHaveClass(/active/);
+  await page.locator('#nav-account').click();
+  await expect(page.locator('#account')).toHaveClass(/active/);
   const originalState = await page.evaluate(() => localStorage.getItem('scirun.state'));
 
   await selectBackup(page, '{broken json', 'invalid.json');
@@ -82,8 +81,9 @@ test('does not overwrite existing data when backup storage fails', async ({ page
   page.setDefaultNavigationTimeout(15_000);
 
   await createProfile(page);
-  await page.locator('#nav-settings').click();
+  await page.locator('#nav-account').click();
   const originalState = await page.evaluate(() => localStorage.getItem('scirun.state'));
+  const originalSnapshot = await page.evaluate(() => localStorage.getItem('scirun.preImportBackup'));
   await page.evaluate(() => {
     const originalSetItem = Storage.prototype.setItem;
     Storage.prototype.setItem = function (key, value) {
@@ -104,6 +104,7 @@ test('does not overwrite existing data when backup storage fails', async ({ page
 
   await expect(page.locator('#importError')).toContainText('Stocarea locală');
   expect(await page.evaluate(() => localStorage.getItem('scirun.state'))).toBe(originalState);
+  expect(await page.evaluate(() => localStorage.getItem('scirun.preImportBackup'))).toBe(originalSnapshot);
   await page.reload();
   await expect(page.locator('#dashboard')).toHaveClass(/active/);
   const persisted = await page.evaluate(() => JSON.parse(localStorage.getItem('scirun.state')));
@@ -121,8 +122,8 @@ test('blocks backup import while a workout is active', async ({ page }) => {
   const originalState = await page.evaluate(() => localStorage.getItem('scirun.state'));
   await page.locator('#workoutBack').click();
   await expect(page.locator('#dashboard')).toHaveClass(/active/);
-  await page.locator('#nav-settings').click();
-  await expect(page.locator('#settings')).toHaveClass(/active/);
+  await page.locator('#nav-account').click();
+  await expect(page.locator('#account')).toHaveClass(/active/);
 
   await selectBackup(page, '{not a backup}', 'ignored.json');
   await expect(page.locator('#importError')).toContainText('Încheie sau abandonează');
@@ -154,16 +155,30 @@ test('restores the actual exported profile and history after reset', async ({ pa
   expect(expectedState.history).toHaveLength(1);
   expect(expectedState.history[0].status).toBe('done');
 
-  await page.locator('#nav-settings').click();
-  await expect(page.locator('#settings')).toHaveClass(/active/);
+  await page.locator('#nav-account').click();
+  await expect(page.locator('#account')).toHaveClass(/active/);
+  await page.evaluate(() => {
+    const createObjectURL = URL.createObjectURL.bind(URL);
+    URL.createObjectURL = blob => {
+      window.__scirunExportBlob = blob;
+      return createObjectURL(blob);
+    };
+  });
   const [download] = await Promise.all([
     page.waitForEvent('download'),
     page.locator('#exportData').click(),
   ]);
   expect(download.suggestedFilename()).toBe('scirun5k-personal-data.json');
-  const downloadPath = await download.path();
-  const backupContents = await fs.readFile(downloadPath, 'utf8');
-  expect(JSON.parse(backupContents)).toEqual(expectedState);
+  const backupContents = await page.evaluate(() => window.__scirunExportBlob.text());
+  const exportedBackup = JSON.parse(backupContents);
+  expect(exportedBackup).toMatchObject({
+    app: 'scirun5k', version: 2, state: expectedState,
+    activeTimer: null, pendingSession: null,
+  });
+  expect(exportedBackup.preferences).toEqual({
+    lang: 'ro', theme: 'dark', palette: 'standard', highContrast: false,
+    timerSound: true, timerVibration: false,
+  });
 
   page.once('dialog', dialog => dialog.accept());
   await page.locator('#resetApp').click();

@@ -117,7 +117,24 @@ test('PWA manifest and precache refer to existing root-level icons and timer cod
     assert.equal(fs.existsSync(path.join(root, asset.slice(2))), true, asset);
   }
   assert.equal(worker.includes('./icons/'), false);
-  assert.equal(manifest.theme_color, '#000000');
+  assert.equal(manifest.theme_color, '#06191d');
+});
+
+test('the selected theme and its font weights are available offline', () => {
+  const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  const css = fs.readFileSync(path.join(root, 'theme-graphite.css'), 'utf8');
+  const worker = fs.readFileSync(path.join(root, 'sw.js'), 'utf8');
+  assert.match(html, /href="theme-graphite\.css"/);
+  for (const asset of ['theme-graphite.css', 'palette-options.css', 'fonts/Barlow-Regular.ttf', 'fonts/Barlow-SemiBold.ttf', 'fonts/Barlow-Bold.ttf', 'fonts/Barlow-Black.ttf']) {
+    assert.ok(worker.includes("./" + asset), asset + ' is precached');
+    assert.equal(fs.existsSync(path.join(root, asset)), true, asset);
+  }
+  for (const file of ['Barlow-Regular.ttf', 'Barlow-SemiBold.ttf', 'Barlow-Bold.ttf', 'Barlow-Black.ttf']) {
+    assert.ok(css.includes('fonts/' + file), file + ' is referenced by the theme');
+    assert.equal(fs.readFileSync(path.join(root, 'fonts', file)).readUInt32BE(0), 0x00010000, file + ' is a TrueType font');
+  }
+  assert.equal(fs.existsSync(path.join(root, 'fonts', 'OFL.txt')), true);
+  assert.match(html, /href="palette-options\.css"/);
 });
 
 test('pending feedback sessions survive storage reloads and can be cleared', () => {
@@ -179,10 +196,16 @@ test('dashboard streak stops at partial sessions and confirmed capacity requires
     { type: 'interval', run: 1000 }, { type: 'continuous', run: 1800 },
   ];
   assert.equal(metrics.trainingStreak(history), 2);
+  assert.equal(metrics.trainingStreak([
+    { status: 'done' }, { status: 'done', skippedRunSeconds: 60 }, { status: 'done' },
+  ]), 1);
   assert.deepEqual({ ...metrics.confirmedCapacity(history, stages, false) }, {
     value: '30 min', minutes: 30, source: 'completed-session',
   });
   assert.equal(metrics.confirmedCapacity(history.slice(0, 3), stages, false), null);
+  assert.equal(metrics.confirmedCapacity([
+    { status: 'done', completion: 1, level: 3, skippedRunSeconds: 120 },
+  ], stages, false), null);
   assert.deepEqual({ ...metrics.confirmedCapacity([], stages, true) }, {
     value: '5 km', minutes: null, source: 'manual-goal',
   });
@@ -223,6 +246,7 @@ test('reset clears the active timer and pending session before returning to onbo
     ['scirun.activeTimer', '{"level":0}'],
     ['scirun.pendingSession', '{"id":"pending"}'],
     ['scirun.state', '{"profile":{"age":"30-39"}}'],
+    ['scirun.preImportBackup', '{"keys":{"scirun.state":"older"}}'],
   ]);
   const storage = {
     getItem: key => values.get(key) ?? null,
@@ -230,17 +254,21 @@ test('reset clears the active timer and pending session before returning to onbo
     removeItem: key => values.delete(key),
   };
   let stopped = false;
+  let cacheClears = 0;
   let activeView = null;
   const context = {
     localStorage: storage,
     TIMER_STORAGE_KEY: 'scirun.activeTimer',
     currentTimer: { index: 0 },
     pendingSession: { id: 'pending' },
+    window: { SciRunNative: { isNative: true, clearBackupCache: async () => { cacheClears++; } } },
     confirm: () => true,
     t: key => key,
     stopTimerInterval: () => { stopped = true; },
     loadState: () => ({ profile: null, level: 0, history: [] }),
     setupForm: () => {},
+    updateStorageRecoveryNotice: () => {},
+    updatePreImportAction: () => {},
     showView: view => { activeView = view; },
     toast: () => {},
     lang: 'ro',
@@ -258,6 +286,8 @@ test('reset clears the active timer and pending session before returning to onbo
   assert.equal(values.has('scirun.activeTimer'), false);
   assert.equal(values.has('scirun.pendingSession'), false);
   assert.equal(values.has('scirun.state'), false);
+  assert.equal(values.has('scirun.preImportBackup'), false);
+  assert.equal(cacheClears, 1);
   assert.equal(activeView, 'onboarding');
 });
 
@@ -279,6 +309,7 @@ test('timer restoration discards invalid snapshots and still resumes a valid tim
       STAGES: Array.from({ length: 15 }, () => ({})),
       state: { profile: hasProfile ? {} : null, history: [] },
       stateStorageReadFailed: false,
+      stateStorageCorrupt: false,
       TIMER_STORAGE_KEY: 'scirun.activeTimer',
       localStorage: {
         getItem: key => values.get(key) ?? null,
@@ -369,15 +400,59 @@ test('loadState normalizes malformed persisted fields while preserving valid pro
   assert.equal(state.hardStreak, 0);
   assert.equal(state.reduceNext, false);
   assert.equal(state.goalReached, false);
+  assert.equal(context.stateStorageCorrupt, true);
+  assert.equal(context.stateRecoveryRaw, JSON.stringify(stored));
 });
 
-test('exportData attaches the download link and defers object URL cleanup', () => {
+test('malformed main storage remains recoverable and cannot be overwritten at startup', () => {
   const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
-  const exportData = html.match(/function exportData\(\)\{[^\r\n]*\}/)?.[0];
-  assert.ok(exportData);
+  const loadState = html.match(/function loadState\(\)\{[^\r\n]*\}/)?.[0];
+  const saveState = html.match(/function saveState\(\)\{[^\r\n]*\}/)?.[0];
+  assert.ok(loadState && saveState);
+  let writes = 0;
+  const context = {
+    STAGES: Array.from({ length: 15 }, () => ({})),
+    localStorage: { getItem: () => '{broken-history' },
+    stateStorageReadFailed: false, stateStorageCorrupt: false, stateRecoveryRaw: null,
+    state: { profile: null, history: [] },
+    storageSet: () => { writes++; return true; },
+    notifyStorageFailure: () => {},
+  };
+  vm.createContext(context);
+  vm.runInContext(loadState + '\n' + saveState, context);
+  assert.equal(context.loadState().history.length, 0);
+  assert.equal(context.stateStorageCorrupt, true);
+  assert.equal(context.stateRecoveryRaw, '{broken-history');
+  assert.equal(context.saveState(), false);
+  assert.equal(writes, 0);
+});
+
+test('corrupt state is quarantined from rendering while its raw bytes remain exportable', () => {
+  const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  const startup = html.match(/let state = loadState\(\);\r?\n[^\r\n]*\r?\n[^\r\n]*/)?.[0];
+  assert.ok(startup);
+  const raw = '{"history":[{"status":"<img onerror=alert(1)>"}]}';
+  const unsafe = { profile: { age: '<img src=x onerror=alert(1)>' }, history: [
+    { status: '<img onerror=alert(1)>', date: '2026-11-03', level: 0 } ] };
+  const context = {
+    stateStorageReadFailed: false, stateStorageCorrupt: false, stateRecoveryRaw: null,
+    storageGet: () => raw, loadState: () => unsafe, STAGES: [{}],
+    SciRunStateBackup: { parse: () => { throw new Error('invalid'); } },
+  };
+  vm.createContext(context);
+  vm.runInContext(startup, context);
+  assert.equal(vm.runInContext('state.profile', context), null);
+  assert.equal(vm.runInContext('state.history.length', context), 0);
+  assert.equal(context.stateStorageCorrupt, true);
+  assert.equal(context.stateRecoveryRaw, raw);
+});
+
+test('browser backup download attaches the link and defers object URL cleanup', async () => {
+  const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  const shareBackupText = html.match(/async function shareBackupText\([^\r\n]*\}/)?.[0];
+  assert.ok(shareBackupText);
 
   const events = [];
-  const state = { profile: { age: '30-39' }, history: [] };
   const anchor = {
     href: '',
     download: '',
@@ -387,7 +462,7 @@ test('exportData attaches the download link and defers object URL cleanup', () =
   let createdBlob = null;
   let revokeCallback = null;
   const context = {
-    state,
+    window: {},
     Blob: class {
       constructor(parts, options) { createdBlob = { parts, options }; }
     },
@@ -400,18 +475,16 @@ test('exportData attaches the download link and defers object URL cleanup', () =
       body: { appendChild: node => { assert.equal(node, anchor); events.push('append'); } },
     },
     setTimeout: (callback, delay) => { revokeCallback = callback; events.push('schedule:' + delay); return 1; },
-    toast: message => events.push('toast:' + message),
-    t: key => key,
   };
   vm.createContext(context);
-  vm.runInContext(exportData, context);
-  context.exportData();
+  vm.runInContext(shareBackupText, context);
+  await context.shareBackupText('{"history":[]}', 'scirun5k-personal-data.json');
 
   assert.equal(anchor.href, 'blob:scirun-export');
   assert.equal(anchor.download, 'scirun5k-personal-data.json');
   assert.equal(createdBlob.options.type, 'application/json');
-  assert.equal(JSON.parse(createdBlob.parts[0]).profile.age, '30-39');
-  assert.deepEqual(events, ['create-url', 'create-anchor', 'append', 'click', 'remove', 'schedule:1000', 'toast:exportDone']);
+  assert.deepEqual(JSON.parse(createdBlob.parts[0]), { history: [] });
+  assert.deepEqual(events, ['create-url', 'create-anchor', 'append', 'click', 'remove', 'schedule:1000']);
   assert.equal(typeof revokeCallback, 'function');
   assert.equal(events.some(event => event.startsWith('revoke:')), false);
 
@@ -483,6 +556,7 @@ test('local storage quota errors are reported without throwing from state and ti
   const context = {
     lang: 'ro',
     stateStorageReadFailed: false,
+    stateStorageCorrupt: false,
     state: { profile: null, level: 0, history: [] },
     TIMER_STORAGE_KEY: 'scirun.activeTimer',
     currentTimer: { level: 0 },
@@ -607,7 +681,7 @@ test('startup preference reads tolerate inaccessible local storage', () => {
   vm.createContext(context);
   vm.runInContext(storageGet, context);
   assert.equal(context.storageGet('scirun.lang'), null);
-  assert.match(html, /let lang = storageGet\('scirun\.lang'\) \|\| 'ro';/);
+  assert.match(html, /let lang = storageGet\('scirun\.lang'\) === 'en' \? 'en' : 'ro';/);
   assert.match(html, /soundEnabled = storageGet\('scirun\.timerSound'\) === 'true'/);
   assert.match(html, /const savedTheme=storageGet\('scirun\.theme'\)/);
   assert.match(html, /if\(!storageGet\('scirun\.theme'\)\)/);
@@ -628,6 +702,7 @@ test('abandon keeps the workout in memory when storage cleanup fails', () => {
       localStorage: { removeItem: key => { if (failTimer && key === 'scirun.activeTimer') throw new Error('storage unavailable'); } },
       SciRunPendingSessionStore: { clear: () => { pendingClearCalls++; return failPending ? false : true; } },
       TIMER_STORAGE_KEY: 'scirun.activeTimer', lang: 'en', storageFailureNotified: false,
+      stateStorageCorrupt: false,
       currentTimer: active, pendingSession: pending, workoutMode: 'abandon-confirm', workoutReturnView: 'dashboard',
       toast: message => notices.push(message), stopTimerInterval: () => { stopped++; },
       showView: () => { shown++; }, renderAll: () => { rendered++; },
@@ -669,11 +744,12 @@ test('state read failures preserve saved sessions and block overwriting until a 
   assert.ok(saveState);
   assert.ok(restorePendingSession);
   assert.ok(restoreTimer);
-  assert.match(html, /let stateStorageReadFailed=false;\s+let state = loadState\(\);/);
+  assert.match(html, /let stateStorageReadFailed=false;let stateStorageCorrupt=false;let stateRecoveryRaw=null;\s+let state = loadState\(\);/);
 
   let reads = 0, writes = 0, pendingLoads = 0, pendingClears = 0, removals = 0, notices = 0;
   const context = {
     stateStorageReadFailed: false,
+    stateStorageCorrupt: false,
     state: {},
     TIMER_STORAGE_KEY: 'scirun.activeTimer',
     localStorage: {
@@ -736,10 +812,13 @@ test('reset rolls back saved data and leaves the app unchanged when cleanup fail
         removeItem: key => { removeCalls++; if (key === failRemovalKey) throw new Error('storage unavailable'); values.delete(key); },
       },
       TIMER_STORAGE_KEY: 'scirun.activeTimer', stateStorageReadFailed: false,
+      stateStorageCorrupt: false,
       currentTimer: activeTimer, pendingSession: pending, state: savedState,
       confirm: () => true, t: key => key, lang: 'ro',
       stopTimerInterval: () => { stopped++; },
       loadState: () => { loads++; return { profile: null, level: 0, history: [] }; },
+      updateStorageRecoveryNotice: () => {},
+      updatePreImportAction: () => {},
       setupForm: () => { setupCalls++; },
       showView: view => { activeView = view; },
       toast: message => notices.push(message),
@@ -966,6 +1045,31 @@ test('the current scheduler accepts consecutive available days and excludes logg
   assert.ok(spaced.every((day,i)=>((spaced[(i+1)%3]-day+7)%7)>=2));
 });
 
+test('editing a training profile keeps legacy personal fields and saved history', () => {
+  const fields = {
+    safetyAnswer: { value: 'no' }, sessionsPerWeek: { value: '3' },
+    runStatus: { value: 'known' }, runMinutes: { value: '3' },
+    scheduleError: { textContent: '' },
+  };
+  const context = experienceContext({
+    $: id => fields[id],
+    document: { querySelectorAll: selector => selector === '#dayChoices input:checked'
+      ? [{ value: '1' }, { value: '3' }, { value: '5' }] : [] },
+    saveState: () => true, renderAll: () => {}, showView: () => {}, toast: () => {},
+    stageForRunMinutes: () => 0,
+  });
+  context.renderAll = () => {};
+  context.showView = () => {};
+  Object.assign(context.state.profile, { age: '30-39', sex: 'female', steps: 7000, safetyAck: true });
+  context.state.history = [{ id: 'saved-session', date: '2026-11-02', status: 'done', level: 0 }];
+  assert.equal(context.saveProfile(), true);
+  assert.equal(context.state.profile.age, '30-39');
+  assert.equal(context.state.profile.sex, 'female');
+  assert.equal(context.state.profile.steps, 7000);
+  assert.equal(context.state.profile.safetyAck, true);
+  assert.equal(context.state.history[0].id, 'saved-session');
+});
+
 test('the final stage extends gradually toward 5 km at calibrated speed', () => {
   const context=experienceContext();
   context.state.level=1;
@@ -1013,10 +1117,51 @@ test('completed skipped workouts save real total distance without requiring a co
   assert.equal(context.pendingSession,null);
 });
 
+test('a finished workout with skipped running stays in history without advancing training', () => {
+  const fields={actualDistance:{value:'5.20'},goalContinuous:{checked:true},feedbackError:{textContent:''}};
+  const context=experienceContext({
+    $:id=>fields[id],saveState:()=>true,clearPendingSession:()=>true,closeModal:()=>{},toast:()=>{},
+    storageFailureText:()=> 'storage full'
+  });
+  context.state.easyStreak=1;
+  context.selectedEffort='easy';
+  context.pendingSession={id:'skipped-easy',level:0,completedNaturally:true,completion:.5,
+    elapsed:1000,week:1,scheduledDate:'2026-11-03',skippedRunSeconds:30,longestRunSeconds:30};
+  context.renderAll=()=>{};
+  context.showView=()=>{};
+  context.saveFeedback();
+  assert.equal(context.state.history[0].status,'done');
+  assert.equal(context.state.history[0].skippedRunSeconds,30);
+  assert.equal(context.state.level,0);
+  assert.equal(context.state.easyStreak,0);
+  assert.equal(context.state.profile.runSpeed,6.5);
+  assert.equal(context.state.goalReached,false);
+});
+
+test('skipped running does not require or apply first-session speed calibration', () => {
+  const fields={actualDistance:{value:'2.10'},goalContinuous:{checked:false},feedbackError:{textContent:''}};
+  const context=experienceContext({
+    $:id=>fields[id],saveState:()=>true,clearPendingSession:()=>true,closeModal:()=>{},toast:()=>{},
+    storageFailureText:()=> 'storage full'
+  });
+  context.state.profile.firstSessionFeedbackDone=false;
+  context.pendingSession={id:'skipped-calibration',level:0,completedNaturally:true,completion:.8,
+    elapsed:1000,week:1,scheduledDate:'2026-11-03',skippedRunSeconds:30,longestRunSeconds:30};
+  context.renderAll=()=>{};
+  context.showView=()=>{};
+  context.saveFeedback();
+  assert.equal(context.state.history.length,1);
+  assert.equal(context.state.history[0].runFeel,null);
+  assert.equal(context.state.profile.firstSessionFeedbackDone,false);
+  assert.equal(context.state.profile.runSpeed,6.5);
+  assert.equal(fields.feedbackError.textContent,'');
+});
+
 
 test('workout renders share one wake lock and late requests release after leaving the workout', async () => {
   let active=false, requests=0, releases=0, resolveLock;
   const context=experienceContext({
+    $: id => id === 'heroStartLabel' ? {} : null,
     document:{visibilityState:'visible',querySelectorAll:()=>[],
       body:{classList:{toggle:(name,value)=>{if(name==='workout-active')active=value;},contains:()=>active}}},
     window:{addEventListener:()=>{},scrollTo:()=>{}},
@@ -1063,7 +1208,7 @@ test('workout visual colors anticipate the next phase without changing the timer
   vm.runInContext(fs.readFileSync(path.join(root,'workout-view.js'),'utf8'),viewContext);
   const visual=viewContext.workoutVisualState;
   const run={type:'run',seconds:60},walk={type:'walk',seconds:60};
-  assert.deepEqual(Array.from(visual(run,walk,11,false).rgb),[244,84,104]);
+  assert.deepEqual(Array.from(visual(run,walk,11,false).rgb),[244,116,130]);
   assert.equal(visual(run,walk,11,false).anticipating,false);
   const ten=visual(run,walk,10,false);
   assert.equal(ten.mix,0);
@@ -1072,30 +1217,54 @@ test('workout visual colors anticipate the next phase without changing the timer
   const five=visual(run,walk,5,false);
   assert.equal(five.mix,.5);
   assert.equal(five.imminent,true);
-  assert.notDeepEqual(Array.from(five.rgb),[244,84,104]);
-  assert.notDeepEqual(Array.from(five.rgb),[54,211,139]);
+  assert.notDeepEqual(Array.from(five.rgb),[244,116,130]);
+  assert.notDeepEqual(Array.from(five.rgb),[88,214,161]);
   assert.equal(visual(run,walk,1,false).mix,.9);
-  assert.deepEqual(Array.from(visual(run,walk,0,false).rgb),[54,211,139]);
+  assert.deepEqual(Array.from(visual(run,walk,0,false).rgb),[88,214,161]);
   assert.equal(run.seconds,60);
   assert.equal(walk.seconds,60);
 });
 
-test('pause and recovery use mint without urgency, and the final phase has no false transition', () => {
+test('warm-up and cool-down use blue, while pause stays mint without urgency', () => {
   const viewContext={};
   vm.createContext(viewContext);
   vm.runInContext(fs.readFileSync(path.join(root,'workout-view.js'),'utf8'),viewContext);
   const visual=viewContext.workoutVisualState;
-  for(const type of ['warmup','cooldown','rest']){
-    assert.deepEqual(Array.from(visual({type},null,1,false).rgb),[88,230,199]);
+  for(const type of ['warmup','cooldown']){
+    assert.deepEqual(Array.from(visual({type},null,1,false).rgb),type==='warmup'?[111,169,255]:[137,194,238]);
   }
+  assert.deepEqual(Array.from(visual({type:'rest'},null,1,false).rgb),[86,220,196]);
   const paused=visual({type:'run'},{type:'walk'},2,true);
-  assert.deepEqual(Array.from(paused.rgb),[88,230,199]);
+  assert.deepEqual(Array.from(paused.rgb),[86,220,196]);
   assert.equal(paused.phase,'rest');
   assert.equal(paused.mix,0);
   assert.equal(paused.imminent,false);
   const final=visual({type:'run'},null,1,false);
   assert.equal(final.mix,0);
   assert.equal(final.imminent,false);
+});
+
+test('workout phases read the selected palette without changing timer segments', () => {
+  const values = {
+    '--phase-run-rgb': '255, 101, 117',
+    '--phase-walk-rgb': '103, 217, 148',
+    '--phase-warmup-rgb': '111, 181, 255',
+    '--phase-cooldown-rgb': '137, 210, 232',
+    '--phase-rest-rgb': '238, 188, 147',
+  };
+  const viewContext = {
+    document: { documentElement: {} },
+    getComputedStyle: () => ({ getPropertyValue: key => values[key] || '' }),
+  };
+  vm.createContext(viewContext);
+  vm.runInContext(fs.readFileSync(path.join(root, 'workout-view.js'), 'utf8'), viewContext);
+  for (const [phase, expected] of [
+    ['run', [255, 101, 117]], ['walk', [103, 217, 148]],
+    ['warmup', [111, 181, 255]], ['cooldown', [137, 210, 232]],
+    ['rest', [238, 188, 147]],
+  ]) {
+    assert.deepEqual(Array.from(viewContext.workoutPhaseRgb(phase)), expected);
+  }
 });
 
 

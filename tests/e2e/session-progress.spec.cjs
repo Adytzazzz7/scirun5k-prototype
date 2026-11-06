@@ -50,7 +50,7 @@ test('workout heading is compact and progress covers every session stage', async
   await expect(page.locator('#workoutViewTitle')).toBeVisible();
   await expect(page.locator('#workoutViewTitle')).toHaveText('Săptămâna 1 · Antrenamentul 1');
   await expect(page.locator('#workoutViewTitle')).toBeInViewport();
-  await expect(page.locator('#workoutViewTitle')).toHaveCSS('color','rgb(241, 243, 247)');
+  await expect(page.locator('#workoutViewTitle')).toHaveCSS('color','rgb(237, 255, 251)');
   await page.clock.runFor(100);
   await page.screenshot({path:'test-results/session-heading-progress.png',fullPage:false});
 

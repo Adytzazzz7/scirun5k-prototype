@@ -1,0 +1,16 @@
+{
+  "appId": "com.scirun.personal5k",
+  "appName": "SciRun 5K",
+  "webDir": "www",
+  "backgroundColor": "#06191d",
+  "android": {
+    "backgroundColor": "#06191d",
+    "minWebViewVersion": 111
+  },
+  "plugins": {
+    "SystemBars": {
+      "insetsHandling": "native",
+      "style": "DARK"
+    }
+  }
+}

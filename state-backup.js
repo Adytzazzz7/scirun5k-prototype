@@ -121,5 +121,194 @@
       ...(typeof saved.lastPlanReason === 'string' ? { lastPlanReason: saved.lastPlanReason.slice(0, 300) } : {})
     };
   }
-  globalThis.SciRunStateBackup = Object.freeze({ parse });
+  const LANGUAGES = new Set(['ro', 'en']);
+  const THEMES = new Set(['dark', 'light']);
+  const PALETTES = new Set(['standard', 'energetic']);
+  const SEGMENT_TYPES = new Set(['warmup', 'run', 'walk', 'cooldown']);
+
+  function validatePreferences(value) {
+    if (!isRecord(value) || !LANGUAGES.has(value.lang) || !THEMES.has(value.theme)
+      || !PALETTES.has(value.palette)) throw invalidBackup();
+    for (const key of ['highContrast', 'timerSound', 'timerVibration']) {
+      if (typeof value[key] !== 'boolean') throw invalidBackup();
+    }
+    return {
+      lang: value.lang, theme: value.theme, palette: value.palette,
+      highContrast: value.highContrast, timerSound: value.timerSound,
+      timerVibration: value.timerVibration
+    };
+  }
+
+  function validSessionId(id) {
+    return (typeof id === 'string' && id.length > 0 && id.length <= 128)
+      || (Number.isSafeInteger(id) && id >= 0);
+  }
+
+  function boundedNumber(value, min, max) {
+    return Number.isFinite(value) && value >= min && value <= max;
+  }
+
+  function validatePendingSession(value, stageCount) {
+    if (value === null) return null;
+    if (!isRecord(value) || !validSessionId(value.id)
+      || !Number.isInteger(value.level) || value.level < 0 || value.level >= stageCount
+      || !boundedNumber(value.completion, 0, 1)
+      || typeof value.completedNaturally !== 'boolean'
+      || !Number.isInteger(value.elapsed) || !boundedNumber(value.elapsed, 0, 86_400)) throw invalidBackup();
+    if (value.interrupted !== undefined && typeof value.interrupted !== 'boolean') throw invalidBackup();
+    if (value.week !== undefined && (!Number.isInteger(value.week) || value.week < 1 || value.week > 12)) throw invalidBackup();
+    if (value.sessionNumber !== undefined && (!Number.isInteger(value.sessionNumber) || value.sessionNumber < 1 || value.sessionNumber > 7)) throw invalidBackup();
+    if (value.scheduledDate !== undefined && !isDateKey(value.scheduledDate)) throw invalidBackup();
+    if (value.skippedRunSeconds !== undefined && !boundedNumber(value.skippedRunSeconds, 0, 86_400)) throw invalidBackup();
+    if (value.skippedSegments !== undefined && (!Number.isInteger(value.skippedSegments)
+      || value.skippedSegments < 0 || value.skippedSegments > 101)) throw invalidBackup();
+    if (value.longestRunSeconds !== undefined && !boundedNumber(value.longestRunSeconds, 0, 86_400)) throw invalidBackup();
+    if (value.selectedEffort != null && !EFFORTS.has(value.selectedEffort)) throw invalidBackup();
+    if (value.selectedRatio != null && !boundedNumber(value.selectedRatio, 0, 1)) throw invalidBackup();
+    if (value.distanceDraft !== undefined && (typeof value.distanceDraft !== 'string'
+      || value.distanceDraft.length > 32
+      || (value.distanceDraft !== '' && (!/^(?:\d+(?:\.\d*)?|\.\d+)$/.test(value.distanceDraft)
+        || !boundedNumber(Number(value.distanceDraft), 0, 100))))) throw invalidBackup();
+    for (const key of ['runFeelDraft', 'walkFeelDraft']) {
+      if (value[key] !== undefined && value[key] !== '' && !FEELS.has(value[key])) throw invalidBackup();
+    }
+    if (value.goalContinuousDraft !== undefined && typeof value.goalContinuousDraft !== 'boolean') throw invalidBackup();
+    const pending = {
+      id: value.id, level: value.level, completion: value.completion,
+      completedNaturally: value.completedNaturally, elapsed: value.elapsed
+    };
+    for (const key of ['interrupted', 'week', 'sessionNumber', 'scheduledDate', 'skippedRunSeconds',
+      'longestRunSeconds', 'selectedEffort', 'selectedRatio', 'distanceDraft',
+      'runFeelDraft', 'walkFeelDraft', 'goalContinuousDraft']) {
+      if (value[key] !== undefined) pending[key] = value[key];
+    }
+    return pending;
+  }
+
+  function validateTimer(value, stageCount, requirePaused) {
+    if (value === null) return null;
+    if (!isRecord(value) || !Number.isInteger(value.level) || value.level < 0 || value.level >= stageCount
+      || !Array.isArray(value.segments) || value.segments.length < 3 || value.segments.length > 101
+      || value.segments.length % 2 !== 1) throw invalidBackup();
+    const segments = value.segments.map((segment, index) => {
+      const expected = index === 0 ? 'warmup'
+        : index === value.segments.length - 1 ? 'cooldown'
+          : index % 2 === 1 ? 'run' : 'walk';
+      if (!isRecord(segment) || !SEGMENT_TYPES.has(segment.type) || segment.type !== expected
+        || !Number.isInteger(segment.seconds) || segment.seconds <= 0 || segment.seconds > 86_400) throw invalidBackup();
+      if (segment.label !== undefined && (typeof segment.label !== 'string'
+        || segment.label.length < 1 || segment.label.length > 120
+        || /[<>&"'`\u0000-\u001f]/.test(segment.label))) throw invalidBackup();
+      const speedMin = segment.type === 'run' ? 3 : 2;
+      const speedMax = segment.type === 'run' ? 16 : 9;
+      if (segment.speed !== undefined && segment.speed !== null
+        && !boundedNumber(segment.speed, speedMin, speedMax)) throw invalidBackup();
+      return {
+        type: segment.type, seconds: segment.seconds,
+        ...(segment.label !== undefined ? { label: segment.label } : {}),
+        ...(segment.speed !== undefined ? { speed: segment.speed } : {})
+      };
+    });
+    const total = segments.reduce((sum, segment) => sum + segment.seconds, 0);
+    if (total > 86_400 || value.total !== total
+      || !Number.isInteger(value.index) || value.index < 0 || value.index >= segments.length
+      || !boundedNumber(value.remaining, 0, segments[value.index].seconds)
+      || !boundedNumber(value.segmentEnd, 1, 8.64e15)
+      || typeof value.paused !== 'boolean' || (requirePaused && !value.paused)
+      || !boundedNumber(value.elapsed, 0, total)) throw invalidBackup();
+    const runTotal = segments.filter(segment => segment.type === 'run')
+      .reduce((sum, segment) => sum + segment.seconds, 0);
+    if (value.skippedSegments !== undefined && (!Number.isInteger(value.skippedSegments)
+      || value.skippedSegments < 0 || value.skippedSegments > segments.length)) throw invalidBackup();
+    if (value.skippedRunSeconds !== undefined && !boundedNumber(value.skippedRunSeconds, 0, runTotal)) throw invalidBackup();
+    if (value.skippedRunElapsedSeconds !== undefined
+      && !boundedNumber(value.skippedRunElapsedSeconds, 0, value.skippedRunSeconds || 0)) throw invalidBackup();
+    if (value.skippedElapsedSeconds !== undefined
+      && !boundedNumber(value.skippedElapsedSeconds, 0, total)) throw invalidBackup();
+    if (value.scheduledDate !== undefined && !isDateKey(value.scheduledDate)) throw invalidBackup();
+    const preceding = segments.slice(0, value.index)
+      .reduce((sum, segment) => sum + segment.seconds, 0);
+    const skippedElapsed = value.skippedElapsedSeconds || 0;
+    if (skippedElapsed > preceding
+      || Math.abs(value.elapsed - (preceding - skippedElapsed)) > 0.001) throw invalidBackup();
+    const timer = {
+      level: value.level, segments, index: value.index,
+      segmentEnd: value.segmentEnd, remaining: value.remaining,
+      paused: value.paused, total, elapsed: value.elapsed
+    };
+    for (const key of ['scheduledDate', 'skippedSegments', 'skippedRunSeconds',
+      'skippedRunElapsedSeconds', 'skippedElapsedSeconds']) {
+      if (value[key] !== undefined) timer[key] = value[key];
+    }
+    return timer;
+  }
+
+  function pauseTimerAt(value, now) {
+    if (!boundedNumber(now, 1, 8.64e15)) throw invalidBackup();
+    const timer = validateTimer(value, 1_000, false);
+    if (timer === null) return null;
+    let index = timer.index;
+    let end = timer.segmentEnd;
+    if (!timer.paused) {
+      while (index < timer.segments.length - 1 && now >= end) {
+        index += 1;
+        end += timer.segments[index].seconds * 1000;
+      }
+    }
+    const remaining = timer.paused ? timer.remaining
+      : Math.min(timer.segments[index].seconds, Math.max(0, (end - now) / 1000));
+    const preceding = timer.segments.slice(0, index)
+      .reduce((sum, segment) => sum + segment.seconds, 0);
+    return {
+      ...timer, index, remaining, paused: true,
+      segmentEnd: now + remaining * 1000,
+      elapsed: Math.max(0, preceding - (timer.skippedElapsedSeconds || 0))
+    };
+  }
+
+  function validateSessionPair(state, activeTimer, pendingSession) {
+    if ((activeTimer || pendingSession) && !state.profile) throw invalidBackup();
+    if (activeTimer && pendingSession) throw invalidBackup();
+    if (pendingSession && state.history.some(entry => entry.id === pendingSession.id)) throw invalidBackup();
+  }
+
+  function createBundle(state, preferences, activeTimer, pendingSession, now = Date.now()) {
+    let stateText;
+    try { stateText = JSON.stringify(state); } catch { throw invalidBackup(); }
+    const cleanState = parse(stateText, 1_000);
+    const cleanPreferences = validatePreferences(preferences);
+    const cleanTimer = activeTimer == null ? null : pauseTimerAt(activeTimer, now);
+    const cleanPending = pendingSession == null ? null : validatePendingSession(pendingSession, 1_000);
+    validateSessionPair(cleanState, cleanTimer, cleanPending);
+    const bundle = {
+      app: 'scirun5k', version: 2, state: cleanState, preferences: cleanPreferences,
+      activeTimer: cleanTimer, pendingSession: cleanPending
+    };
+    if (JSON.stringify(bundle).length > 5_000_000) throw invalidBackup();
+    return bundle;
+  }
+
+  function parseBundle(text, stageCount) {
+    if (typeof text !== 'string' || text.length > 5_000_000
+      || !Number.isInteger(stageCount) || stageCount < 1) throw invalidBackup();
+    let saved;
+    try { saved = JSON.parse(text); } catch { throw invalidBackup(); }
+    if (!isRecord(saved)) throw invalidBackup();
+    const isEnvelope = ['app', 'state', 'preferences', 'activeTimer', 'pendingSession']
+      .some(key => Object.hasOwn(saved, key));
+    if (!isEnvelope) {
+      return { state: parse(text, stageCount), preferences: null, activeTimer: null, pendingSession: null };
+    }
+    if (saved.app !== 'scirun5k' || saved.version !== 2
+      || !Object.hasOwn(saved, 'state') || !Object.hasOwn(saved, 'preferences')
+      || !Object.hasOwn(saved, 'activeTimer') || !Object.hasOwn(saved, 'pendingSession')) throw invalidBackup();
+    const state = parse(JSON.stringify(saved.state), stageCount);
+    const preferences = validatePreferences(saved.preferences);
+    const activeTimer = validateTimer(saved.activeTimer, stageCount, true);
+    const pendingSession = validatePendingSession(saved.pendingSession, stageCount);
+    validateSessionPair(state, activeTimer, pendingSession);
+    return { state, preferences, activeTimer, pendingSession };
+  }
+
+  globalThis.SciRunStateBackup = Object.freeze({ parse, createBundle, parseBundle });
 })();

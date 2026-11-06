@@ -1,0 +1,10 @@
+node_modules/
+.android-toolchain/
+www/
+dist/
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+test-results/
+playwright-report/

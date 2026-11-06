@@ -27,7 +27,7 @@ jobs:
       - name: Run unit tests
         run: npm test
       - name: Run browser tests
-        run: npm run test:e2e
+        run: npm run test:e2e -- --config playwright.mobile.config.cjs
       - name: Upload Chromium screenshots and failure traces
         if: always()
         uses: actions/upload-artifact@v7.0.2

@@ -6,8 +6,8 @@ test('changes weekly frequency and moves a workout past unavailable dates', asyn
   page.setDefaultTimeout(5_000);
   await page.clock.install({ time: new Date('2026-11-03T09:00:00Z') });
   await createProfile(page);
-  await page.locator('#nav-settings').click();
-  await expect(page.locator('#settings')).toHaveClass(/active/);
+  await page.locator('#nav-account').click();
+  await expect(page.locator('#account')).toHaveClass(/active/);
 
   await page.locator('#settingFrequency').selectOption('3');
   for (const day of [1, 2, 3]) await page.locator('#scheduleDays input[value="' + day + '"]').check();

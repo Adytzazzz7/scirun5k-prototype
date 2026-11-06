@@ -1,12 +1,25 @@
 {
   "name": "scirun5k-prototype",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "scripts": {
-    "test": "node --test tests/timer.test.cjs",
-    "test:e2e": "playwright test"
+    "test": "node --test \"tests/*.test.cjs\"",
+    "test:e2e": "playwright test",
+    "build:web": "node scripts/build-web.cjs",
+    "android:sync": "npm run build:web && cap sync android",
+    "android:apk": "pwsh -NoProfile -File scripts/build-personal-apk.ps1",
+    "android:apk:debug": "npm run android:sync && cd android && gradlew.bat assembleDebug"
   },
   "devDependencies": {
-    "@playwright/test": "1.64.1"
+    "@capacitor/cli": "^8.6.0",
+    "@playwright/test": "1.64.1",
+    "esbuild": "^0.25.12"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.6.0",
+    "@capacitor/core": "^8.6.0",
+    "@capacitor/filesystem": "^8.1.5",
+    "@capacitor/haptics": "^8.0.2",
+    "@capacitor/share": "^8.0.3"
   }
 }

@@ -9,7 +9,7 @@
   function trainingStreak(history) {
     let streak = 0;
     for (let index = history.length - 1; index >= 0; index -= 1) {
-      if (history[index].status !== 'done') break;
+      if (history[index].status !== 'done' || (history[index].skippedRunSeconds || 0) > 0) break;
       streak += 1;
     }
     return streak;
@@ -18,7 +18,8 @@
   function confirmedCapacity(history, stages, goalReached) {
     if (goalReached) return { value: '5 km', minutes: null, source: 'manual-goal' };
     const seconds = history
-      .filter(session => session.status === 'done' && session.completion === 1)
+      .filter(session => session.status === 'done' && session.completion === 1
+        && !(session.skippedRunSeconds > 0) && !(session.timerCompletion < 0.999))
       .map(session => stages[session.level])
       .filter(stage => stage && stage.type === 'continuous')
       .reduce((maximum, stage) => Math.max(maximum, stage.run), 0);
