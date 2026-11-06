@@ -31,12 +31,12 @@ Au fost verificate ecranele de început, panou, istoric, setări, cont și antre
 
 ## Verificare și limite
 
-Suita Node include teste pentru backupul vechi și nou, importul cu rollback, restaurarea copiei anterioare, izolarea datelor corupte, progresul după salt, focus și configurarea Android. Buildul Android `0.1.1` a reușit local; semnătura sa corespunde versiunii `0.1.0`, iar pachetul are același ID `com.scirun.personal5k` și `versionCode 2`.
+Suita Node include teste pentru backupul vechi și nou, importul cu rollback, restaurarea copiei anterioare, izolarea datelor corupte, progresul după salt, focus și configurarea Android. [GitHub Actions, rularea 49](https://github.com/Adytzazzz7/scirun5k-prototype/actions/runs/42269663772), a trecut cu 82/82 teste Node și 33/33 scenarii mobile. Buildul Android `0.1.1` a reușit local înainte de cererea de livrare doar în GitHub; semnătura sa corespunde versiunii `0.1.0`, iar pachetul are același ID `com.scirun.personal5k` și `versionCode 2`.
 
-Browserul conectat nu a putut accesa serverul local și a blocat `file://`, astfel că nu există o verificare vizuală live completă pentru acest checkout. Testele mobile Playwright sunt selectate în CI, însă rezultatul lor trebuie verificat după publicarea ramurii. Nu a fost testat un telefon fizic sau un build iOS. Cheia de semnare rămâne doar locală, în afara repositoryului.
+Browserul conectat nu a putut accesa serverul local și a blocat `file://`, astfel că nu există o verificare vizuală live completă pentru acest checkout. Scenariile automate mobile au trecut în CI. Nu a fost testat un telefon fizic sau un build iOS. Cheia de semnare rămâne doar locală, în afara repositoryului.
 
 ## Pași următori recomandați
 
-1. Verificarea fluxurilor mobile în GitHub Actions și corectarea oricărei regresii observate acolo.
-2. Test pe telefon Android cu istoric real: actualizare peste versiunea curentă, închidere/redeschidere în antrenament, export/import și restaurarea copiei dinaintea importului.
+1. Revizuirea și integrarea [PR #28](https://github.com/Adytzazzz7/scirun5k-prototype/pull/28) în ramura principală când utilizatorul dorește acest lucru.
+2. La reluarea livrării Android, test pe telefon cu istoric real: actualizare peste versiunea curentă, închidere/redeschidere în antrenament, export/import și restaurarea copiei dinaintea importului.
 3. După validarea Android, pregătirea proiectului iOS și testarea separată a semnalelor tactile, stocării și funcționării offline pe iPhone.
