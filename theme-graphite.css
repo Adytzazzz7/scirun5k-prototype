@@ -219,3 +219,7 @@ html[data-theme="light"] .active-timer-copy span{color:#4d6764}
 @media(prefers-reduced-transparency:reduce){
   .card,.stat,.formcard,.week,.history-entry,.modal,.glass-panel,.glass-control,.nav,.topbar{backdrop-filter:none;-webkit-backdrop-filter:none;background:var(--surface-strong)}
 }
+
+html[data-theme="light"] .goal-celebration p,
+html[data-theme="light"] .first-speed-feedback small { color:var(--muted); }
+html[data-theme="light"] .status.partial { color:#8c4b1d; }

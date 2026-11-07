@@ -1,4 +1,4 @@
-const CACHE_NAME = 'scirun5k-v0-47';
+const CACHE_NAME = 'scirun5k-v0-48';
 const ASSETS = [
   './',
   './index.html',

@@ -109,3 +109,25 @@
 :root[data-contrast="high"] .preference-toggle[aria-pressed="true"]{filter:saturate(1.3) contrast(1.06)}
 :root[data-contrast="high"] :focus-visible{outline-width:3px}
 @media(prefers-reduced-motion:reduce){.palette-option{transition:none}}
+
+/* Compact controls keep the active state in the label and switch track. */
+#settings .visual-controls { gap:8px; margin:12px 0 10px; }
+#settings .visual-choice { min-height:78px; padding:8px; gap:2px; border-radius:12px; }
+#settings .visual-choice > span { font-size:.78rem; }
+#settings .palette-options { gap:7px; }
+#settings .palette-option { min-height:58px; padding:7px 10px; border-radius:12px; }
+#settings .palette-swatches i { width:19px; height:23px; border-radius:7px; }
+#settings .palette-option-text strong { font-size:.88rem; }
+#settings .palette-option-text small { font-size:.74rem; }
+:root[data-palette] #settings .preference-toggle {
+  min-width:91px; min-height:44px; width:auto; justify-content:flex-end; gap:5px;
+  padding:4px 0 4px 4px; border:0; background:transparent; color:var(--muted); box-shadow:none;
+}
+:root[data-palette] #settings .visual-choice .preference-toggle { width:100%; }
+:root[data-palette] #settings .preference-toggle[aria-pressed="true"] {
+  color:var(--sky); background:transparent; border-color:transparent; box-shadow:none; filter:none;
+}
+:root[data-palette] #settings .preference-toggle-track { width:38px; height:23px; background:var(--line); border:1px solid var(--line); }
+:root[data-palette] #settings .preference-toggle-track::after { top:2px; left:2px; width:17px; height:17px; background:var(--muted); box-shadow:none; }
+:root[data-palette] #settings .preference-toggle[aria-pressed="true"] .preference-toggle-track { background:var(--sky); border-color:var(--sky); }
+:root[data-palette] #settings .preference-toggle[aria-pressed="true"] .preference-toggle-track::after { transform:translateX(15px); background:var(--paper); }

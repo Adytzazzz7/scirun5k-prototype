@@ -300,17 +300,6 @@
     }).join('') + '</div>';
   }
 
-  function renderRecentSessions() {
-    const target = $('recentSessions');
-    const recent = [...state.history].sort((a, b) => String(b.completedAt || b.date).localeCompare(String(a.completedAt || a.date))).slice(0, 2);
-    target.closest('.recent-card').classList.toggle('hidden', recent.length === 0);
-    if (!recent.length) {
-      target.innerHTML = '';
-      return;
-    }
-    target.innerHTML = recent.map(s => '<div class="recent-session"><div><strong>' + dateLabel(s.completedAt || s.date, { day: 'numeric', month: 'short', year: 'numeric' }) + '</strong><span>' + (s.status === 'done' ? txt('COMPLETĂ', 'COMPLETE') : txt('PARȚIALĂ', 'PARTIAL')) + '</span><small>' + (sessionDistance(s) === null ? txt('Distanță necompletată', 'No distance entered') : kmText(sessionDistance(s))) + ' · ' + effortNames[s.effort || 'moderate'] + '</small></div><b>' + (s.effort ? '✓' : '') + '</b></div>').join('');
-  }
-
   function renderWeeklyView() {
     const target = $('weeklyView');
     const start = localDay(new Date());
@@ -357,11 +346,9 @@
     const chipLabels = { warmup: txt('ÎNCĂLZIRE', 'WARM-UP'), run: txt('ALERGARE', 'RUN'), walk: txt('MERS', 'WALK'), cooldown: txt('REVENIRE', 'COOL-DOWN') };
     $('phaseChips').innerHTML = segments.map(segment => '<span class="phase-chip ' + chipClasses[segment.type] + '">● &nbsp; ' + formatSeconds(segment.seconds) + ' ' + chipLabels[segment.type] + '</span>').join('');
     $('planReason').textContent = state.lastPlanReason || txt('Ritmul și durata se adaptează după efortul raportat și distanța reală.', 'Pace and duration adapt to reported effort and actual distance.');
-    $('homeRunSpeed').textContent = speedFor('run') ? speedFor('run').toFixed(1) + ' km/h' : '—';
     $('totalDistance').textContent = kmText(totalRealDistance());
     renderWeeklyView();
     drawDistanceChart();
-    renderRecentSessions();
     updateGoalCelebration();
   }
 
@@ -376,7 +363,14 @@
       target.innerHTML = '<div class="empty history-empty">' + txt('Nicio sesiune salvată încă.', 'No saved workouts yet.') + '</div>';
       return;
     }
-    target.innerHTML = entries.map(s => '<article class="history-entry"><div class="history-entry-head"><strong>' + dateLabel(s.completedAt || s.date, { day: 'numeric', month: 'short', year: 'numeric' }) + '</strong><span class="status ' + s.status + '">' + (s.status === 'done' ? txt('Completă', 'Complete') : txt('Parțială', 'Partial')) + '</span></div><div class="history-entry-data"><span>' + (sessionDistance(s) === null ? txt('Distanță necompletată', 'Distance not entered') : kmText(sessionDistance(s))) + '</span><span>' + formatSeconds(s.elapsed || 0) + '</span><span>' + effortNames[s.effort || 'moderate'] + '</span></div></article>').join('');
+    target.innerHTML = entries.map(s => {
+      const when = s.completedAt || s.date;
+      const year = new Date(when).getFullYear();
+      const yearLabel = Number.isFinite(year) && year !== new Date().getFullYear() ? '<small class="history-year">' + year + '</small>' : '';
+      const stageName = STAGES[s.level]?.name?.[lang] || txt('Antrenament', 'Workout');
+      const distance = sessionDistance(s) === null ? txt('Distanță necompletată', 'Distance not entered') : kmText(sessionDistance(s));
+      return '<article class="history-entry"><div class="history-entry-date"><strong>' + dateLabel(when, { day: '2-digit' }) + '</strong><small>' + dateLabel(when, { month: 'short' }) + '</small>' + yearLabel + '</div><div class="history-entry-main"><strong>' + stageName + '</strong><span>' + formatSeconds(s.elapsed || 0) + ' · ' + distance + '</span><small>' + effortNames[s.effort || 'moderate'] + '</small></div><span class="status ' + s.status + '">' + (s.status === 'done' ? txt('Completă', 'Complete') : txt('Parțială', 'Partial')) + '</span></article>';
+    }).join('');
   }
 
   const palettes = ['standard', 'energetic'];

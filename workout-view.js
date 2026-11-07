@@ -88,9 +88,9 @@ function renderWorkoutPage(){
  page.innerHTML='<div class=\"workout-page\">'+
   '<header class=\"workout-top\"><button type=\"button\" class=\"workout-back glass-control\" id=\"workoutBack\"><span aria-hidden=\"true\">←</span> '+workoutText('Înapoi','Back')+'</button>'+
   '<div class=\"workout-heading workout-session-heading\"><h1 id=\"workoutViewTitle\" tabindex=\"-1\">'+workoutText('Săptămâna ','Week ')+position.week+' · '+workoutText('Antrenamentul ','Workout ')+position.session+'</h1><p class=\"workout-timer-state\" id=\"timerState\"></p></div></header>'+
-  '<div class=\"workout-content\"><div class=\"workout-ring\" id=\"workoutRing\" role=\"img\" aria-label=\"'+workoutText('Progresul intervalului','Interval progress')+'\"><div class=\"workout-ring-center\">'+workoutLiquidMarkup()+'<span class=\"workout-current\" id=\"currentInterval\"></span><output class=\"workout-time\" id=\"timerBig\" aria-live=\"off\">00:00</output><span class=\"workout-recommended-speed\" id=\"recommendedSpeed\"></span></div><span class=\"phase-countdown hidden\" id=\"phaseCountdown\"></span></div><p class=\"workout-announcement\" id=\"workoutAnnouncement\" role=\"status\" aria-live=\"polite\" aria-atomic=\"true\"></p>'+
-  '<div class=\"workout-rounds\"><div class=\"workout-round-label\"><span>'+workoutText('Progresul sesiunii','Session progress')+'</span><strong id=\"roundCount\"></strong></div><div class=\"session-progress\" id=\"roundBar\" role=\"progressbar\" aria-label=\"'+workoutText('Progresul tuturor etapelor','Progress through all session stages')+'\" aria-valuemin=\"0\" aria-valuemax=\"'+currentTimer.segments.length+'\" style=\"--stage-count:'+currentTimer.segments.length+'\">'+workoutProgressSteps(currentTimer.segments)+'</div><div class=\"session-progress-legend\">'+workoutProgressLegend(currentTimer.segments)+'</div></div>'+
-  '<div class=\"workout-next glass-panel\"><div><span class=\"eyebrow\">'+workoutText('URMĂTORUL INTERVAL','UP NEXT')+'</span><strong id=\"nextInterval\">—</strong></div><div class=\"workout-total\"><span>'+workoutText('Timp','Time')+'</span><strong id=\"elapsedTotal\">00:00 / 00:00</strong></div></div>'+
+  '<div class=\"workout-content\"><div class=\"workout-phase\"><strong class=\"workout-current\" id=\"currentInterval\"></strong><span id=\"roundCount\"></span></div><div class=\"workout-ring\" id=\"workoutRing\" role=\"img\" aria-label=\"'+workoutText('Progresul intervalului','Interval progress')+'\"><div class=\"workout-ring-center\">'+workoutLiquidMarkup()+'<span class=\"workout-remaining\">'+workoutText('Rămân','Remaining')+'</span><output class=\"workout-time\" id=\"timerBig\" aria-live=\"off\">00:00</output><span class=\"workout-recommended-speed\" id=\"recommendedSpeed\"></span></div><span class=\"phase-countdown hidden\" id=\"phaseCountdown\"></span></div><p class=\"workout-announcement\" id=\"workoutAnnouncement\" role=\"status\" aria-live=\"polite\" aria-atomic=\"true\"></p>'+
+  '<div class=\"workout-rounds\"><div class=\"workout-round-label\"><span>'+workoutText('Progresul sesiunii','Session progress')+'</span><strong id=\"elapsedTotal\">00:00 / 00:00</strong></div><div class=\"session-progress\" id=\"roundBar\" role=\"progressbar\" aria-label=\"'+workoutText('Progresul tuturor etapelor','Progress through all session stages')+'\" aria-valuemin=\"0\" aria-valuemax=\"'+currentTimer.segments.length+'\" style=\"--stage-count:'+currentTimer.segments.length+'\">'+workoutProgressSteps(currentTimer.segments)+'</div><div class=\"session-progress-legend\">'+workoutProgressLegend(currentTimer.segments)+'</div></div>'+
+  '<div class=\"workout-next glass-panel\"><div><span class=\"workout-next-label\">'+workoutText('Urmează','Up next')+'</span><strong id=\"nextInterval\">—</strong></div><div class=\"workout-total\"><strong id=\"nextDuration\"></strong></div></div>'+
   '<p class=\"workout-note muted\">'+t('timerNote')+'</p></div>'+
   '<div class=\"workout-controls\"><button type=\"button\" class=\"btn workout-primary\" id=\"workoutPause\">'+(paused?'▶ '+t('resume'):'Ⅱ '+t('pause'))+'</button><button type=\"button\" class=\"btn ghost workout-skip\" id=\"workoutSkip\">'+t('skipSegment')+'</button><button type=\"button\" class=\"btn workout-finish\" id=\"workoutFinish\">'+workoutText('Oprește sesiunea','Stop workout')+'</button><button type=\"button\" class=\"workout-abandon\" id=\"workoutAbandon\">'+workoutText('Abandonează fără salvare','Abandon without saving')+'</button></div></div>';
  if(previousAnnouncement)$('workoutAnnouncement').replaceWith(previousAnnouncement);
@@ -117,11 +117,14 @@ function updateWorkoutPage(){
  ring.style.setProperty('--phase-rgb',visual.rgb.join(', '));
  ring.style.setProperty('--phase-color','rgb('+visual.rgb.join(', ')+')');
  ring.style.setProperty('--phase-ink','rgb('+visual.rgb.map(channel=>Math.round(channel*.5)).join(', ')+')');
+ const phaseHeader=$('currentInterval').parentElement;
+ phaseHeader.style.setProperty('--phase-color','rgb('+visual.rgb.join(', ')+')');
+ phaseHeader.style.setProperty('--phase-ink','rgb('+visual.rgb.map(channel=>Math.round(channel*.5)).join(', ')+')');
  ring.style.setProperty('--timer-progress',segmentPercent+'%');
  ring.style.setProperty('--liquid-level',segmentPercent+'%');
  ring.setAttribute('aria-label',workoutText('Intervalul curent: ','Current interval: ')+workoutIntervalName(seg)+', '+formatSeconds(remaining)+', '+workoutText('etapa ','stage ')+sessionProgress.current+' '+workoutText('din ','of ')+sessionProgress.total);
  $('timerBig').textContent=formatSeconds(remaining);
- $('currentInterval').textContent=(seg.label||workoutIntervalName(seg)).toUpperCase();
+ $('currentInterval').textContent=workoutIntervalName(seg);
  const status=currentTimer.paused?workoutText('ÎN PAUZĂ','PAUSED'):workoutText('ÎN DESFĂȘURARE','IN PROGRESS');
  if($('timerState').textContent!==status)$('timerState').textContent=status;
  $('timerState').dataset.paused=String(currentTimer.paused);
@@ -134,7 +137,7 @@ function updateWorkoutPage(){
  }
  const speed=Number.isFinite(Number(seg.speed))?Number(seg.speed):(seg.type==='run'?Number(state.profile?.runSpeed):Number(state.profile?.walkSpeed));
  const speedOutput=$('recommendedSpeed');
- if(speedOutput)speedOutput.textContent=speed>0?workoutText('VITEZĂ SUGERATĂ\n','SUGGESTED SPEED\n')+speed.toFixed(1)+' km/h':'';
+ if(speedOutput)speedOutput.textContent=speed>0?speed.toFixed(1)+' km/h '+workoutText('sugerat','suggested'):'';
  const countdown=$('phaseCountdown');
  if(countdown){
    const seconds=Math.ceil(remaining);
@@ -156,6 +159,7 @@ function updateWorkoutPage(){
    step.querySelector('.session-progress-fill').style.width=(index<currentTimer.index?100:index===currentTimer.index?sessionProgress.within*100:0)+'%';
  });
  $('nextInterval').textContent=next?(next.label||workoutIntervalName(next)):workoutText('Ultimul interval','Final interval');
+ $('nextDuration').textContent=next?formatSeconds(next.seconds):'';
  const elapsed=(currentTimer.elapsed||0)+elapsedInSegment;
  $('elapsedTotal').textContent=formatSeconds(elapsed)+' / '+formatSeconds(currentTimer.total);
 }

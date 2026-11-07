@@ -43,6 +43,32 @@ test('mobile preferences show their state and persist across reload and language
   await expect(theme.locator('.preference-toggle-state')).toHaveText('Off');
 });
 
+test('Aurora settings keep visual controls compact and light goal text readable', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await createProfile(page);
+  await page.locator('#nav-settings').click();
+  const visual = await page.locator('.visual-choice').first().boundingBox();
+  const palette = await page.locator('.palette-option').first().boundingBox();
+  expect(visual.height).toBeLessThanOrEqual(82);
+  expect(palette.height).toBeLessThanOrEqual(62);
+  await expect(page.locator('.setting-row #vibrationHelp')).toHaveCount(1);
+  await expect(page.locator('#toast')).toHaveClass(/hidden/);
+  await page.screenshot({ path: 'test-results/premium-settings-dark.png', fullPage: true, animations: 'disabled' });
+  await page.locator('#themeToggle').click();
+  await page.locator('#nav-dashboard').click();
+  await page.screenshot({ path: 'test-results/premium-panou-light.png', fullPage: true, animations: 'disabled' });
+  const contrast = await page.locator('#goalMedalMeta').evaluate(element => {
+    element.closest('#goalCelebration').classList.remove('hidden');
+    const channels = color => color.match(/\d+/g).slice(0, 3).map(Number).map(v => {
+      const x = v / 255;
+      return x <= .04045 ? x / 12.92 : ((x + .055) / 1.055) ** 2.4;
+    });
+    const [r,g,b] = channels(getComputedStyle(element).color);
+    return 1.05 / (r * .2126 + g * .7152 + b * .0722 + .05);
+  });
+  expect(contrast).toBeGreaterThanOrEqual(4.5);
+});
+
 test('mobile timer uses a continuous liquid arc and phase-colored pulse', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.clock.install({ time: new Date('2026-11-03T09:00:00Z') });

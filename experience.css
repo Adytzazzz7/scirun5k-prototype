@@ -184,6 +184,9 @@ main.wrap { max-width: 1420px; padding: 36px 28px 76px; }
 .recent-session small { display:block; margin-top:3px; color:#98a2b1; }
 .recent-session b { color:#59e3c4; }
 .home-speed-stats { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.distance-total { display:grid; justify-items:end; gap:1px; text-align:right; }
+.distance-total strong { color:var(--text); font-size:1.12rem; font-variant-numeric:tabular-nums; line-height:1.1; white-space:nowrap; }
+.distance-total small { color:var(--muted); font-size:.75rem; }
 .weekly-card { padding:12px; }
 .week-days { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:9px; }
 .week-day {
@@ -198,9 +201,25 @@ main.wrap { max-width: 1420px; padding: 36px 28px 76px; }
 .week-day.is-done { background:rgba(69,190,163,.13); border-color:rgba(88,230,199,.4); }
 .week-day.is-done small { color:#59dfc2; }
 .week-day.is-off { opacity:.5; }
-.history-stats { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; margin:22px 0; }
-.history-list { display:grid; gap:12px; }
-.history-entry { padding:18px 20px; }
+.history-total { display:flex; align-items:baseline; gap:8px; margin:16px 0 15px; }
+.history-total strong { color:var(--text); font-size:clamp(2.6rem,8vw,3.3rem); line-height:1; font-weight:900; font-variant-numeric:tabular-nums; }
+.history-total span { color:var(--muted); font-size:.95rem; }
+.history-stats { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin:0 0 20px; }
+.history-list-heading { margin:20px 0 8px; }
+.history-list { display:grid; gap:0; }
+.history-entry { display:grid; grid-template-columns:54px minmax(0,1fr) auto; align-items:start; gap:14px; min-width:0; padding:15px 3px; border:0; border-bottom:1px solid var(--line); border-radius:0; background:transparent; box-shadow:none; backdrop-filter:none; }
+.history-entry-date { display:grid; justify-items:center; gap:0; color:var(--muted); line-height:1.15; }
+.history-entry-date strong { color:var(--text); font-size:1.38rem; font-variant-numeric:tabular-nums; }
+.history-entry-date small { font-size:.76rem; }
+.history-entry-main { display:grid; gap:3px; min-width:0; }
+.history-entry-main strong { color:var(--text); font-size:1rem; line-height:1.2; }
+.history-entry-main span,.history-entry-main small { color:var(--muted); font-size:.81rem; line-height:1.25; }
+.history-entry .status { align-self:start; padding:4px 8px; border-radius:999px; font-size:.7rem; font-weight:800; letter-spacing:0; text-transform:none; white-space:nowrap; }
+.history-entry .status.done { color:#b7ebd6; background:rgba(88,214,161,.15); }
+.history-entry .status.partial { color:#ffd4a3; background:rgba(255,179,117,.15); }
+.history-empty { margin-top:8px; }
+html[data-theme="light"] .history-entry .status.done { color:#166a4b; background:#d7f3e5; }
+html[data-theme="light"] .history-entry .status.partial { color:#8c4b1d; background:#ffebd9; }
 .history-entry-head { display:flex; align-items:center; justify-content:space-between; gap:12px; }
 .history-entry-head strong { font-size:1rem; }
 .history-entry-data { display:flex; gap:20px; flex-wrap:wrap; margin-top:12px; color:#aeb7c4; font-size:.88rem; }
@@ -273,6 +292,9 @@ main.wrap { max-width: 1420px; padding: 36px 28px 76px; }
 .preference-toggle[aria-pressed="true"] .preference-toggle-track::after { transform:translateX(14px); }
 html[data-theme="light"] .preference-toggle[aria-pressed="false"] { background:#e7ecf2; border-color:#94a3b4; color:#243247; }
 .setting-row > span:first-child { min-width:0; }
+.setting-row > span:first-child { display:grid; gap:3px; }
+.setting-row > span:first-child strong { color:var(--text); font-size:.9rem; line-height:1.2; }
+.setting-row > span:first-child small { color:var(--muted); font-size:.75rem; line-height:1.25; }
 .setting-row input[type="checkbox"] { accent-color:#58e6c7; width:19px; height:19px; }
 .date-range { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:14px 0; }
 .date-range label { font-size:.8rem; font-weight:800; color:#dfe3e9; }
@@ -418,12 +440,13 @@ html[data-theme="light"] #planReason { color:#617086; }
   --phase-rgb:var(--phase-rest-rgb,86,220,196);
   --phase-color:rgb(var(--phase-rgb));
   --liquid-level:0%;
-  --ring-stroke:14px;
+  --ring-stroke:11px;
   position:relative;
   isolation:isolate;
-  background:rgba(var(--phase-rgb),.12);
-  box-shadow:0 0 28px rgba(var(--phase-rgb),.22),inset 0 0 16px rgba(var(--phase-rgb),.13);
-  transition:--timer-progress .35s linear,box-shadow .3s ease;
+  padding:19px;
+  background:transparent;
+  box-shadow:none;
+  transition:--timer-progress .35s linear;
 }
 .workout-ring::before {
   content:"";
@@ -431,13 +454,24 @@ html[data-theme="light"] #planReason { color:#617086; }
   inset:0;
   z-index:4;
   border-radius:50%;
-  background:conic-gradient(from 0deg,rgba(var(--phase-rgb),.72) 0,var(--phase-color) var(--timer-progress),transparent var(--timer-progress) 100%);
+  background:conic-gradient(from 0deg,var(--phase-color) 0 var(--timer-progress),transparent var(--timer-progress) 100%);
   -webkit-mask:radial-gradient(farthest-side,transparent calc(100% - var(--ring-stroke)),#000 calc(100% - var(--ring-stroke) + 1px));
   mask:radial-gradient(farthest-side,transparent calc(100% - var(--ring-stroke)),#000 calc(100% - var(--ring-stroke) + 1px));
-  filter:drop-shadow(0 0 6px rgba(var(--phase-rgb),.55));
+  filter:drop-shadow(0 0 5px rgba(var(--phase-rgb),.38));
   pointer-events:none;
 }
-.workout-ring-center { position:relative; overflow:hidden; isolation:isolate; z-index:2; background:var(--surface-strong); }
+.workout-ring::after {
+  content:"";
+  position:absolute;
+  inset:0;
+  z-index:3;
+  border-radius:50%;
+  background:rgba(198,228,223,.17);
+  -webkit-mask:radial-gradient(farthest-side,transparent calc(100% - var(--ring-stroke)),#000 calc(100% - var(--ring-stroke) + 1px));
+  mask:radial-gradient(farthest-side,transparent calc(100% - var(--ring-stroke)),#000 calc(100% - var(--ring-stroke) + 1px));
+  pointer-events:none;
+}
+.workout-ring-center { position:relative; overflow:hidden; isolation:isolate; z-index:2; border:0; background:var(--surface-strong); box-shadow:inset 0 0 20px rgba(0,0,0,.1); }
 .workout-ring-center > :not(.workout-liquid) { position:relative; z-index:2; }
 .workout-liquid {
   position:absolute;
@@ -452,7 +486,7 @@ html[data-theme="light"] #planReason { color:#617086; }
   inset:auto 0 0;
   height:var(--liquid-level);
   overflow:hidden;
-  opacity:.27;
+  opacity:.43;
   transition:height .22s linear;
 }
 .liquid-wave::after {
@@ -471,10 +505,10 @@ html[data-theme="light"] #planReason { color:#617086; }
   fill:rgb(var(--phase-rgb));
   animation:liquid-flow 6.5s linear infinite;
 }
-.liquid-wave-back{opacity:.13}
+.liquid-wave-back{opacity:.2}
 .liquid-wave-back .liquid-surface{animation-duration:9s;animation-direction:reverse;animation-delay:-2.3s}
 .workout-current { color:var(--phase-color); transition:color .25s linear; }
-.workout-ring[data-anticipating="true"] { box-shadow:0 0 42px rgba(var(--phase-rgb),.3),inset 0 0 20px rgba(var(--phase-rgb),.16); }
+.workout-ring[data-anticipating="true"] { box-shadow:none; }
 .workout-ring[data-imminent="true"] {
   animation:handoff-pulse 1.05s ease-in-out infinite;
 }
@@ -488,14 +522,20 @@ html[data-theme="light"] #planReason { color:#617086; }
   to { transform:translateX(-50%); }
 }
 @keyframes handoff-pulse {
-  0%,100% { transform:scale(1);background-color:rgba(var(--phase-rgb),.12);box-shadow:0 0 20px rgba(var(--phase-rgb),.3),inset 0 0 16px rgba(var(--phase-rgb),.13); }
-  50% { transform:scale(1.055);background-color:rgba(var(--phase-rgb),.19);box-shadow:0 0 38px 12px rgba(var(--phase-rgb),.48),inset 0 0 24px rgba(var(--phase-rgb),.2); }
+  0%,100% { transform:scale(1);filter:drop-shadow(0 0 4px rgba(var(--phase-rgb),.24)); }
+  50% { transform:scale(1.035);filter:drop-shadow(0 0 16px rgba(var(--phase-rgb),.62)); }
 }
 @media(prefers-reduced-motion:reduce) {
   .workout-ring,.liquid-surface { animation:none !important; }
   .liquid-wave,.workout-current,.workout-ring { transition:none !important; }
 }
-@media(max-width:360px) { .workout-ring { --ring-stroke:11px; } }
+@media(max-width:360px) { .workout-ring { --ring-stroke:10px; padding:16px; } }
+
+@media(max-width:360px) {
+  .history-entry { grid-template-columns:38px minmax(0,1fr) auto; gap:8px; }
+  .history-entry .status { font-size:.66rem; padding:4px 6px; }
+  .history-entry-main strong { font-size:.9rem; }
+}
 
 html[data-theme="light"] .workout-current { color:var(--phase-ink,#182333); }
 html[data-theme="light"] .workout-recommended-speed { color:#087f69; }
@@ -653,4 +693,85 @@ html[data-theme="light"] .session-progress-step[data-status="current"] { border-
   .workout-page:not(.workout-feedback-page) { gap:10px; }
   .workout-content { gap:8px; }
   .workout-ring { width:min(34vh,208px); }
+}
+
+/* Mobile hierarchy follows the approved Aurora Teal preview. */
+#history .history-list .history-entry { background:transparent; border:0; border-bottom:1px solid var(--line); border-radius:0; box-shadow:none; backdrop-filter:none; -webkit-backdrop-filter:none; }
+.workout-phase { display:grid; justify-items:center; gap:4px; width:100%; text-align:center; }
+.workout-phase .workout-current { max-width:none; color:var(--phase-color); font-size:1.03rem; font-weight:900; letter-spacing:0; line-height:1.15; }
+html[data-theme="light"] .workout-phase .workout-current { color:var(--phase-ink,#173431); }
+.workout-phase #roundCount { color:var(--muted); font-size:.82rem; font-weight:700; }
+.workout-remaining { color:var(--text); font-size:.76rem; font-weight:800; }
+.workout-ring-center .workout-recommended-speed { color:var(--text); max-width:85%; font-size:.88rem; line-height:1.2; font-weight:700; }
+.workout-next-label { color:var(--muted); font-size:.79rem; font-weight:700; }
+.workout-next strong { font-size:1.15rem; line-height:1.15; }
+.workout-total #nextDuration { color:var(--text); font-size:1rem; white-space:nowrap; }
+.workout-round-label #elapsedTotal { color:var(--muted); font-size:.78rem; font-weight:700; }
+.session-progress-step { border:0; background:rgba(198,228,223,.16); }
+.session-progress-step[data-status="current"] { box-shadow:0 0 0 1px var(--stage-color); }
+.session-progress-step[data-status="complete"] { border:0; }
+.session-progress-legend { font-size:.76rem; }
+html[data-theme="light"] .workout-ring::after { background:rgba(23,52,49,.13); }
+@media(max-width:720px) {
+  .footer { display:none; }
+  #dashboard .next-workout-card { border-radius:20px; }
+  #dashboard .next-workout-card .cardhead { grid-template-columns:minmax(0,1fr); gap:7px; }
+  #dashboard #nextWeekTag { grid-column:1; grid-row:1; justify-self:start; border:0; border-radius:0; background:transparent; padding:0; font-size:.82rem; }
+  #dashboard #nextWorkoutTitle { grid-row:2; margin:0; font-size:1.45rem; line-height:1.12; }
+  #dashboard #nextWorkoutDesc { grid-row:3; margin:0; font-size:.89rem; line-height:1.3; }
+  #dashboard .workout-metrics { grid-template-columns:repeat(3,minmax(0,1fr)); gap:0; margin:15px 0 12px; }
+  #dashboard .workout-metrics > div { min-width:0; padding:0 8px; background:none; border:0; border-right:1px solid var(--line); border-radius:0; }
+  #dashboard .workout-metrics > div:first-child { padding-left:0; }
+  #dashboard .workout-metrics > div:last-child { grid-column:auto; padding-right:0; border-right:0; }
+  #dashboard .workout-metrics small { font-size:.75rem; line-height:1.2; letter-spacing:0; }
+  #dashboard .workout-metrics strong { font-size:1rem; line-height:1.1; overflow-wrap:anywhere; }
+  #dashboard .workout-preview { margin:0 0 12px; padding:0; border:0; border-top:1px solid var(--line); border-radius:0; }
+  #dashboard .workout-preview summary { font-size:.9rem; }
+  #dashboard .why-plan { margin:0; border-top:1px solid var(--line); padding:11px 0 0; }
+  #dashboard .why-plan strong { font-size:.75rem; letter-spacing:0; }
+  #dashboard .why-plan p { margin:5px 0 0; font-size:.82rem; }
+  #dashboard .home-stats { grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; margin-bottom:14px; }
+  #dashboard .home-stats .goal-date-card { grid-column:auto; }
+  #dashboard .home-stats .stat { min-height:96px; padding:11px; }
+  #dashboard .home-stats .stat .k { font-size:.75rem; line-height:1.15; letter-spacing:0; }
+  #dashboard .home-stats .stat .value { font-size:1.3rem; }
+  #dashboard .home-stats .stat .sub { font-size:.69rem; line-height:1.15; }
+  #dashboard .distance-card { min-height:0; }
+  #dashboard .distance-card .cardhead { display:flex; align-items:start; }
+  #dashboard .distance-card .cardhead h2 { font-size:1.2rem; }
+  #dashboard .chart-empty { min-height:70px; display:flex; align-items:center; justify-content:flex-start; padding:8px 0; text-align:left; font-size:.82rem; }
+  #dashboard .distance-bars { height:120px; }
+  #history .history-stats { grid-template-columns:repeat(2,minmax(0,1fr)); margin-bottom:18px; }
+  #history .history-stats .stat:last-child { grid-column:auto; }
+  #history .history-stats .stat { padding:13px; min-width:0; }
+  #history .history-stats .stat .k { font-size:.75rem; line-height:1.15; }
+  #history .history-stats .stat .value { font-size:1.3rem; }
+  #settings .settings-grid .card { padding:16px; }
+  #settings .setting-row { gap:10px; padding:6px 0; }
+  .workout-page:not(.workout-feedback-page) { gap:10px; }
+  .workout-page:not(.workout-feedback-page) .workout-top { grid-template-columns:auto minmax(0,1fr); align-items:center; }
+  .workout-page:not(.workout-feedback-page) .workout-session-heading { grid-column:2; text-align:right; }
+  .workout-page:not(.workout-feedback-page) .workout-session-heading h1 { font-size:.82rem; line-height:1.2; }
+  .workout-page:not(.workout-feedback-page) .workout-heading #timerState { margin:3px 0 0; font-size:.72rem; letter-spacing:0; }
+  .workout-page:not(.workout-feedback-page) .workout-content { gap:10px; }
+  .workout-page:not(.workout-feedback-page) .workout-ring { width:min(37vh,246px); max-width:74vw; margin-bottom:44px; }
+  .workout-page:not(.workout-feedback-page) .workout-next { padding:12px 14px; border-radius:15px; }
+  .workout-page:not(.workout-feedback-page) .workout-controls { grid-template-columns:repeat(3,minmax(0,1fr)); gap:7px; }
+  .workout-page:not(.workout-feedback-page) .workout-primary { grid-column:auto; font-size:.85rem; }
+  .workout-page:not(.workout-feedback-page) .workout-controls .btn { min-height:49px; padding:8px 5px; border-radius:12px; font-size:.82rem; line-height:1.15; }
+  .workout-page:not(.workout-feedback-page) .workout-abandon { grid-column:1/-1; min-height:40px; font-size:.76rem; }
+}
+@media(max-width:355px) {
+  #dashboard .home-stats { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  #dashboard .home-stats .goal-date-card { grid-column:1/-1; }
+  #dashboard .workout-metrics strong { font-size:.87rem; }
+  .workout-page:not(.workout-feedback-page) .workout-ring { width:min(36vh,218px); max-width:72vw; }
+  .workout-page:not(.workout-feedback-page) .workout-controls .btn { font-size:.75rem; }
+}
+@media(max-width:480px) and (max-height:620px) {
+  .workout-page:not(.workout-feedback-page) { gap:6px; padding-top:max(8px,env(safe-area-inset-top)); padding-bottom:max(8px,env(safe-area-inset-bottom)); }
+  .workout-page:not(.workout-feedback-page) .workout-content { gap:5px; }
+  .workout-page:not(.workout-feedback-page) .workout-ring { width:min(28vh,180px); margin-bottom:40px; }
+  .workout-page:not(.workout-feedback-page) .workout-time { font-size:clamp(2.5rem,13vw,3rem); }
+  .workout-page:not(.workout-feedback-page) .workout-note { display:none; }
 }

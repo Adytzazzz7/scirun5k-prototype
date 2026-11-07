@@ -58,6 +58,7 @@ function workoutHarness() {
         for (const attribute of match[0].matchAll(/([\w-]+)="([^"]*)"/g)) attributes[attribute[1]] = attribute[2];
         elements.set(match[1], element(match[1], attributes));
       }
+      if (elements.has('currentInterval')) elements.get('currentInterval').parentElement = element('workoutPhase');
     },
   });
   elements.set('workout', page);
@@ -167,6 +168,7 @@ test('phase and countdown announcements are outside image semantics and update o
   assert.equal(live.getAttribute('role'), 'status');
   assert.equal(live.getAttribute('aria-atomic'), 'true');
   assert.ok(ancestorRoles(page.innerHTML, 'phaseCountdown').includes('img'));
+  assert.ok(!ancestorRoles(page.innerHTML, 'currentInterval').includes('img'));
   assert.ok(!ancestorRoles(page.innerHTML, 'workoutAnnouncement').includes('img'));
   assert.equal(get('currentInterval').getAttribute('aria-live'), null);
   assert.equal(get('phaseCountdown').getAttribute('aria-live'), null);

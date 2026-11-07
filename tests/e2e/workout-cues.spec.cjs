@@ -20,6 +20,7 @@ async function crossNextBoundary(page, extra = 400) {
 }
 
 test('announces a live phase change once and uses a distinct completion cue', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
   await trackSignals(page);
   await createProfile(page);
   await page.locator('#nav-settings').click();
@@ -35,7 +36,7 @@ test('announces a live phase change once and uses a distinct completion cue', as
   expect(await vibrations(page)).toEqual([]);
 
   await crossNextBoundary(page);
-  await expect(page.locator('#currentInterval')).toContainText('ALERGARE');
+  await expect(page.locator('#currentInterval')).toContainText('Alergare');
   await expect(page.locator('#workoutRing')).toHaveAttribute('data-workout-signal', 'phase');
   expect(await vibrations(page)).toHaveLength(1);
   await page.clock.fastForward(1_800);
@@ -45,7 +46,7 @@ test('announces a live phase change once and uses a distinct completion cue', as
   expect(await vibrations(page)).toHaveLength(1);
 
   await page.locator('#workoutSkip').click();
-  await expect(page.locator('#currentInterval')).toContainText('MERS');
+  await expect(page.locator('#currentInterval')).toContainText('Mers');
   expect(await vibrations(page)).toHaveLength(2);
 
   const untilCooldown = await page.evaluate(() =>
@@ -53,7 +54,7 @@ test('announces a live phase change once and uses a distinct completion cue', as
     currentTimer.segments.slice(currentTimer.index + 1, -1).reduce((total, phase) => total + phase.seconds * 1000, 0)
   );
   await page.clock.fastForward(untilCooldown + 400);
-  await expect(page.locator('#currentInterval')).toContainText('REVENIRE');
+  await expect(page.locator('#currentInterval')).toContainText('Revenire');
   expect(await vibrations(page)).toHaveLength(2);
   await crossNextBoundary(page);
   await expect(page.locator('.workout-feedback-summary')).toHaveAttribute('data-workout-signal', 'complete');
@@ -67,6 +68,7 @@ test('announces a live phase change once and uses a distinct completion cue', as
 });
 
 test('keeps visual feedback with reduced motion and stays silent when vibration is off', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
   await trackSignals(page);
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await createProfile(page);

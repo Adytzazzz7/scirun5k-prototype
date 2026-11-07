@@ -1,3 +1,5 @@
+param([switch]$LauncherOnly)
+
 Add-Type -AssemblyName System.Drawing
 $projectRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
 $resources = Join-Path $projectRoot 'android/app/src/main/res'
@@ -22,6 +24,7 @@ try {
   }
 } finally { $source.Dispose() }
 
+if (-not $LauncherOnly) {
 $fonts = [System.Drawing.Text.PrivateFontCollection]::new()
 try {
   $fonts.AddFontFile((Join-Path $projectRoot 'fonts/Barlow-Black.ttf'))
@@ -61,4 +64,5 @@ try {
     }
   }
 } finally { $fonts.Dispose() }
-Write-Output 'SciRun Android launcher and splash assets updated.'
+}
+Write-Output $(if ($LauncherOnly) { 'SciRun Android launcher assets updated.' } else { 'SciRun Android launcher and splash assets updated.' })

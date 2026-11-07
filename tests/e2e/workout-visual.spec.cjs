@@ -1,6 +1,41 @@
 const { expect, test } = require('@playwright/test');
 const { createProfile, startWorkout } = require('./helpers.cjs');
 
+test('mobile workout gives phase, timer, speed and next duration a clear order', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await createProfile(page);
+  await startWorkout(page);
+  const phase = await page.locator('#currentInterval').boundingBox();
+  const ring = await page.locator('#workoutRing').boundingBox();
+  const time = await page.locator('#timerBig').boundingBox();
+  const speed = await page.locator('#recommendedSpeed').boundingBox();
+  expect(phase.y + phase.height).toBeLessThan(ring.y);
+  expect(time.y + time.height).toBeLessThan(speed.y);
+  await expect(page.locator('.workout-next #nextDuration')).toHaveText(await page.evaluate(() =>
+    formatSeconds(currentTimer.segments[currentTimer.index + 1].seconds)
+  ));
+  await expect(page.locator('.workout-rounds #elapsedTotal')).toBeVisible();
+  const trackMask = await page.locator('#workoutRing').evaluate(el => getComputedStyle(el, '::after').maskImage);
+  expect(trackMask).toContain('radial-gradient');
+});
+
+test('short narrow Android layout keeps the workout controls in view', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 568 });
+  await createProfile(page);
+  await startWorkout(page);
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
+  for (const id of ['workoutPause', 'workoutSkip', 'workoutFinish']) {
+    const box = await page.locator(`#${id}`).boundingBox();
+    expect(box.width).toBeGreaterThanOrEqual(48);
+    expect(box.height).toBeGreaterThanOrEqual(48);
+    expect(box.y + box.height).toBeLessThanOrEqual(568);
+  }
+  const ring = await page.locator('#workoutRing').boundingBox();
+  expect(ring.x).toBeGreaterThanOrEqual(0);
+  expect(ring.x + ring.width).toBeLessThanOrEqual(320);
+  await page.screenshot({ path: 'test-results/workout-motion-narrow.png', fullPage: true, animations: 'disabled' });
+});
+
 test('motion ring anticipates phase changes and controls use their action colors', async ({ page }) => {
   test.setTimeout(60_000);
   await page.emulateMedia({ reducedMotion: 'no-preference' });
