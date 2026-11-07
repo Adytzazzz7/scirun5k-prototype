@@ -9,7 +9,11 @@ const workoutSource = fs.readFileSync(path.join(root, 'workout-view.js'), 'utf8'
 
 function workoutHarness() {
   const elements = new Map();
-  const document = { body: { id: 'body' }, activeElement: null, documentElement: { dataset: {} }, querySelectorAll: () => [] };
+  const bodyClasses = new Set();
+  const document = { body: { id: 'body', classList: {
+    contains: name => bodyClasses.has(name),
+    toggle(name, enabled) { if (enabled) bodyClasses.add(name); else bodyClasses.delete(name); },
+  } }, activeElement: null, documentElement: { dataset: {} }, querySelectorAll: () => [] };
   document.activeElement = document.body;
 
   function element(id, attributes = {}) {
@@ -71,7 +75,7 @@ function workoutHarness() {
     document,
     Date: class extends Date { static now() { return now; } },
     $: id => id === 'workout' ? page : elements.get(id) || null,
-    showView() {},
+    showView(id) { document.body.classList.toggle('workout-active', id === 'workout'); },
     nextScheduledDate: () => '2026-11-06',
     getWeekNumber: () => 1,
     formatSeconds: value => `00:${String(Math.ceil(value)).padStart(2, '0')}`,

@@ -103,7 +103,7 @@ function updateWorkoutPage(){
  if(!currentTimer)return;
  const ring=$('workoutRing');if(!ring)return;
  const seg=currentTimer.segments[currentTimer.index];if(!seg)return;
- document.documentElement.dataset.workoutPhase=seg.type;
+ if(document.body.classList.contains('workout-active'))document.documentElement.dataset.workoutPhase=seg.type;
  const remaining=currentTimer.paused?currentTimer.remaining:Math.max(0,(currentTimer.segmentEnd-Date.now())/1000);
  const elapsedInSegment=Math.max(0,seg.seconds-remaining);
  const segmentPercent=Math.min(100,elapsedInSegment/Math.max(1,seg.seconds)*100);

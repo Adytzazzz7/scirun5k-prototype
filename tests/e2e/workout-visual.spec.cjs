@@ -136,9 +136,14 @@ test('Aurora workout background follows the interval and light notices stay read
 
   await page.locator('#workoutBack').click();
   await expect(page.locator('html')).not.toHaveAttribute('data-workout-phase', /.+/);
+  await page.clock.fastForward(1_000);
+  await expect(page.locator('html')).not.toHaveAttribute('data-workout-phase', /.+/);
   await page.locator('#nav-settings').click();
   await page.locator('#themeToggle').click();
   await page.locator('#nav-dashboard').click();
+  await page.evaluate(() => toast('Verificare contrast'));
+  await expect(page.locator('#toast')).toBeVisible();
+  expect(await contrastRatio('#toast')).toBeGreaterThanOrEqual(4.5);
   await startWorkout(page);
   await expectPhaseHue('walk');
   const untilCue = await page.evaluate(() => currentTimer.segmentEnd - Date.now() - 9_500);

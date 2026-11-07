@@ -212,7 +212,7 @@ html[data-theme="light"] .active-timer-copy span{color:#4d6764}
 }
 /* Transition cues and notices need an opaque surface in light mode. */
 :root[data-palette="standard"][data-theme="light"] body.workout-active .workout-ring > .phase-countdown,
-:root[data-palette="standard"][data-theme="light"] body.workout-active .toast{
+:root[data-palette="standard"][data-theme="light"] .toast{
   color:#173431;background:#fff;border:1px solid rgba(23,52,49,.28);box-shadow:0 8px 22px rgba(23,52,49,.14);
 }
 @media(prefers-reduced-motion:reduce){.active-timer-surface,.active-timer-dial[data-imminent="true"]{animation:none}}
