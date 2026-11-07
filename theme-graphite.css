@@ -113,6 +113,40 @@ body,button,input,select,textarea{font-family:Barlow,"Avenir Next",Arial,sans-se
 #account .weekly-inline p{margin:0 0 12px}
 #history .recent-card{margin-bottom:18px}
 
+/* Aurora Teal: clearer secondary text and a lighter schedule hierarchy. */
+:root[data-palette="standard"] .home-side .cardhead small,
+:root[data-palette="standard"] .recent-session small{color:var(--muted)}
+:root[data-palette="standard"] #account .weekly-inline{
+  margin:18px 0 12px;padding:16px 0 0;
+  border:0;border-top:1px solid var(--line);border-radius:0;background:none;
+}
+:root[data-palette="standard"][data-contrast="normal"] .home-stats .stat,
+:root[data-palette="standard"][data-contrast="normal"] #history .history-stats .stat{
+  background:radial-gradient(circle at 100% 0%,rgba(var(--palette-secondary-rgb),.11),transparent 9rem),var(--surface);
+}
+@media(max-width:720px){
+  :root[data-palette="standard"] .nav button{font-size:.75rem}
+  :root[data-palette="standard"] .home-stats .stat .k,
+  :root[data-palette="standard"] .workout-metrics small,
+  :root[data-palette="standard"] .home-speed-stats small,
+  :root[data-palette="standard"] .recent-session span,
+  :root[data-palette="standard"] .week-day span,
+  :root[data-palette="standard"] .week-day small,
+  :root[data-palette="standard"] .status,
+  :root[data-palette="standard"] .active-timer-copy span{font-size:.75rem}
+  :root[data-palette="standard"] .distance-column strong,
+  :root[data-palette="standard"] .distance-column small{font-size:.75rem;letter-spacing:-.02em}
+  :root[data-palette="standard"] .workout-current,
+  :root[data-palette="standard"] .workout-heading #timerState{font-size:.78rem}
+  :root[data-palette="standard"] .workout-timer-state,
+  :root[data-palette="standard"] .session-progress-legend{font-size:.75rem}
+  :root[data-palette="standard"] .workout-recommended-speed{font-size:.86rem}
+  :root[data-palette="standard"] .workout-ring > .phase-countdown{font-size:.8rem}
+}
+@media(max-width:380px){
+  :root[data-palette="standard"] .distance-bars{height:165px}
+}
+
 /* Pearl Aqua keeps Aurora Teal legible in light mode. */
 :root[data-theme="light"]{
   color-scheme:light;--paper:#f1faf9;--white:rgba(255,255,255,.78);--surface:rgba(255,255,255,.78);--surface-strong:rgba(255,255,255,.95);--surface-soft:rgba(227,243,240,.82);--nav-surface:rgba(245,252,250,.84);
