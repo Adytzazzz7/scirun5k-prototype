@@ -96,11 +96,19 @@ test('Aurora workout background follows the interval and light notices stay read
   async function expectPhaseHue(phase, dominant) {
     await expect(page.locator('html')).toHaveAttribute('data-workout-phase', phase);
     await expect(page.locator('body')).toHaveClass(/workout-active/);
-    const colors = await page.evaluate(() => ['html', 'body'].map(selector =>
-      getComputedStyle(document.querySelector(selector)).backgroundColor.match(/\d+/g).slice(0, 3).map(Number)
-    ));
+    const diagnostic = await page.evaluate(() => {
+      const root = document.documentElement;
+      const sheet = [...document.styleSheets].find(item => item.href?.includes('theme-graphite.css'));
+      return {
+        dataset: { ...root.dataset },
+        stage: getComputedStyle(root).getPropertyValue('--workout-stage-dark').trim(),
+        phaseRuleLoaded: !!sheet && [...sheet.cssRules].some(rule => rule.selectorText?.includes('[data-workout-phase]')),
+        colors: [root, document.body].map(node => getComputedStyle(node).backgroundColor.match(/\d+/g).slice(0, 3).map(Number)),
+      };
+    });
+    const colors = diagnostic.colors;
     for (const channels of colors) {
-      expect(channels[dominant]).toBeGreaterThanOrEqual(Math.max(...channels.filter((_, index) => index !== dominant)) + 12);
+      expect(channels[dominant], JSON.stringify(diagnostic)).toBeGreaterThanOrEqual(Math.max(...channels.filter((_, index) => index !== dominant)) + 12);
     }
   }
 
