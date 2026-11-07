@@ -114,7 +114,10 @@
     document.body.classList.toggle('workout-active', id === 'workout');
     document.body.classList.toggle('setup-active', id === 'onboarding');
     if (id === 'dashboard') updateDashboardAction();
-    if (id !== 'workout') window.scrollTo({ top: 0, behavior: 'auto' });
+    if (id !== 'workout') {
+      delete document.documentElement.dataset.workoutPhase;
+      window.scrollTo({ top: 0, behavior: 'auto' });
+    }
     manageWakeLock();
   }
   showView = showExperienceView;

@@ -84,3 +84,73 @@ test('motion ring anticipates phase changes and controls use their action colors
   await page.screenshot({path:'test-results/workout-motion-light.png',fullPage:true});
   expect(errors).toEqual([]);
 });
+
+test('Aurora workout background follows the interval and light notices stay readable', async ({ page }) => {
+  test.setTimeout(60_000);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.clock.install({ time: new Date('2026-11-03T09:00:00Z') });
+  await createProfile(page);
+  await startWorkout(page);
+
+  async function expectPhaseHue(phase, dominant) {
+    await expect(page.locator('html')).toHaveAttribute('data-workout-phase', phase);
+    await expect(page.locator('body')).toHaveClass(/workout-active/);
+    const colors = await page.evaluate(() => ['html', 'body'].map(selector =>
+      getComputedStyle(document.querySelector(selector)).backgroundColor.match(/\d+/g).slice(0, 3).map(Number)
+    ));
+    for (const channels of colors) {
+      expect(channels[dominant]).toBeGreaterThanOrEqual(Math.max(...channels.filter((_, index) => index !== dominant)) + 12);
+    }
+  }
+
+  async function contrastRatio(selector) {
+    return page.locator(selector).evaluate(node => {
+      const luminance = color => {
+        const channels = color.match(/\d+/g).slice(0, 3).map(Number).map(value => {
+          const v = value / 255;
+          return v <= .04045 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4;
+        });
+        return channels[0] * .2126 + channels[1] * .7152 + channels[2] * .0722;
+      };
+      const style = getComputedStyle(node), a = luminance(style.color), b = luminance(style.backgroundColor);
+      return (Math.max(a, b) + .05) / (Math.min(a, b) + .05);
+    });
+  }
+
+  await expectPhaseHue('warmup', 2);
+  await page.locator('#workoutSkip').click();
+  await expectPhaseHue('run', 0);
+  await page.locator('#workoutPause').click();
+  await expect(page.locator('#workoutRing')).toHaveAttribute('data-phase', 'rest');
+  await expectPhaseHue('run', 0);
+  await page.locator('#workoutPause').click();
+  const untilWalk = await page.evaluate(() => currentTimer.segmentEnd - Date.now());
+  await page.clock.fastForward(untilWalk + 400);
+  await expectPhaseHue('walk', 1);
+
+  await page.locator('#workoutBack').click();
+  await expect(page.locator('html')).not.toHaveAttribute('data-workout-phase', /.+/);
+  await page.locator('#nav-settings').click();
+  await page.locator('#themeToggle').click();
+  await page.locator('#nav-dashboard').click();
+  await startWorkout(page);
+  await expectPhaseHue('walk', 1);
+  const untilCue = await page.evaluate(() => currentTimer.segmentEnd - Date.now() - 9_500);
+  await page.clock.fastForward(untilCue);
+  await expect(page.locator('#phaseCountdown')).toBeVisible();
+  expect(await contrastRatio('#phaseCountdown')).toBeGreaterThanOrEqual(4.5);
+  await page.evaluate(() => toast('Verificare contrast'));
+  await expect(page.locator('#toast')).toBeVisible();
+  expect(await contrastRatio('#toast')).toBeGreaterThanOrEqual(4.5);
+
+  const untilCooldown = await page.evaluate(() =>
+    currentTimer.segmentEnd - Date.now() + currentTimer.segments.slice(currentTimer.index + 1, -1).reduce((total, segment) => total + segment.seconds * 1000, 0)
+  );
+  await page.clock.fastForward(untilCooldown + 400);
+  await expectPhaseHue('cooldown', 2);
+  page.on('dialog', dialog => dialog.accept());
+  await page.locator('#workoutFinish').click();
+  await expect(page.locator('.workout-feedback-page')).toBeVisible();
+  await expect(page.locator('html')).not.toHaveAttribute('data-workout-phase', /.+/);
+});

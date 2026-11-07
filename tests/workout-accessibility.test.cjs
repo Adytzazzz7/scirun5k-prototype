@@ -9,7 +9,7 @@ const workoutSource = fs.readFileSync(path.join(root, 'workout-view.js'), 'utf8'
 
 function workoutHarness() {
   const elements = new Map();
-  const document = { body: { id: 'body' }, activeElement: null, documentElement: {}, querySelectorAll: () => [] };
+  const document = { body: { id: 'body' }, activeElement: null, documentElement: { dataset: {} }, querySelectorAll: () => [] };
   document.activeElement = document.body;
 
   function element(id, attributes = {}) {
@@ -119,10 +119,12 @@ function ancestorRoles(markup, id) {
 test('pause and skip restore focus to the equivalent control after a workout rerender', () => {
   const { context, document, get } = workoutHarness();
   context.renderWorkoutPage();
+  assert.equal(document.documentElement.dataset.workoutPhase, 'warmup');
 
   const originalPause = get('workoutPause');
   originalPause.focus();
   originalPause.onclick();
+  assert.equal(document.documentElement.dataset.workoutPhase, 'warmup', 'pause keeps the real segment color');
   assert.notEqual(get('workoutPause'), originalPause);
   assert.equal(document.activeElement, get('workoutPause'));
   assert.equal(get('workoutAnnouncement').textContent, 'Paused');
@@ -131,6 +133,7 @@ test('pause and skip restore focus to the equivalent control after a workout rer
   const originalSkip = get('workoutSkip');
   originalSkip.focus();
   originalSkip.onclick();
+  assert.equal(document.documentElement.dataset.workoutPhase, 'run');
   assert.notEqual(get('workoutSkip'), originalSkip);
   assert.equal(document.activeElement, get('workoutSkip'));
 });
@@ -185,12 +188,13 @@ test('phase and countdown announcements are outside image semantics and update o
 });
 
 test('a new workout announces its first phase after the previous session reaches feedback', () => {
-  const { context, get, timer } = workoutHarness();
+  const { context, document, get, timer } = workoutHarness();
   context.renderWorkoutPage();
   assert.match(get('workoutAnnouncement').textContent, /Current interval: Warm-up/);
   context.currentTimer = null;
   context.pendingSession = { level: 0, week: 1, sessionNumber: 1, elapsed: 60, completion: 1, completedNaturally: true };
   context.renderWorkoutPage();
+  assert.equal(document.documentElement.dataset.workoutPhase, undefined, 'feedback clears the phase background');
   context.pendingSession = null;
   context.currentTimer = timer;
   context.renderWorkoutPage();
