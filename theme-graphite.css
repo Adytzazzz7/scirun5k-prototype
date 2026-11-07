@@ -199,18 +199,16 @@ html[data-theme="light"] .active-timer-copy span{color:#4d6764}
 :root[data-palette="standard"][data-workout-phase="walk"]{--workout-stage-rgb:var(--phase-walk-rgb);--workout-stage-dark:#123f2f;--workout-stage-light:#dff8e9}
 :root[data-palette="standard"][data-workout-phase="warmup"]{--workout-stage-rgb:var(--phase-warmup-rgb);--workout-stage-dark:#14395b;--workout-stage-light:#deebff}
 :root[data-palette="standard"][data-workout-phase="cooldown"]{--workout-stage-rgb:var(--phase-cooldown-rgb);--workout-stage-dark:#14395b;--workout-stage-light:#deebff}
-:root[data-palette="standard"][data-theme="dark"][data-workout-phase]{background-color:var(--workout-stage-dark)}
+:root[data-palette="standard"][data-theme="dark"][data-workout-phase]{background:var(--workout-stage-dark)}
 :root[data-palette="standard"][data-theme="dark"][data-workout-phase] body.workout-active{
-  background-color:var(--workout-stage-dark);
-  background-image:radial-gradient(ellipse at 14% 5%,rgba(var(--workout-stage-rgb),.22),transparent 46%),radial-gradient(ellipse at 91% 96%,rgba(var(--workout-stage-rgb),.13),transparent 50%);
+  background:radial-gradient(ellipse at 14% 5%,rgba(var(--workout-stage-rgb),.22),transparent 46%),radial-gradient(ellipse at 91% 96%,rgba(var(--workout-stage-rgb),.13),transparent 50%),var(--workout-stage-dark);
 }
 :root[data-palette="standard"][data-contrast="normal"][data-theme="dark"][data-workout-phase] body.workout-active{
   --surface:rgba(7,22,28,.7);--surface-strong:rgba(7,22,28,.92);--surface-soft:rgba(7,22,28,.76);
 }
-:root[data-palette="standard"][data-theme="light"][data-workout-phase]{background-color:var(--workout-stage-light)}
+:root[data-palette="standard"][data-theme="light"][data-workout-phase]{background:var(--workout-stage-light)}
 :root[data-palette="standard"][data-theme="light"][data-workout-phase] body.workout-active{
-  background-color:var(--workout-stage-light);
-  background-image:radial-gradient(ellipse at 15% 5%,rgba(var(--workout-stage-rgb),.07),transparent 48%),radial-gradient(ellipse at 91% 95%,rgba(255,255,255,.45),transparent 50%);
+  background:radial-gradient(ellipse at 15% 5%,rgba(var(--workout-stage-rgb),.07),transparent 48%),radial-gradient(ellipse at 91% 95%,rgba(255,255,255,.45),transparent 50%),var(--workout-stage-light);
 }
 /* Transition cues and notices need an opaque surface in light mode. */
 :root[data-palette="standard"][data-theme="light"] body.workout-active .workout-ring > .phase-countdown,
