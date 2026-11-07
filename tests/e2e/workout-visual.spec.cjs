@@ -93,34 +93,20 @@ test('Aurora workout background follows the interval and light notices stay read
   await createProfile(page);
   await startWorkout(page);
 
-  async function expectPhaseHue(phase, dominant) {
-    await expect(page.locator('html')).toHaveAttribute('data-workout-phase', phase);
-    await expect(page.locator('body')).toHaveClass(/workout-active/);
-    const diagnostic = await page.evaluate(() => {
-      const root = document.documentElement;
-      const sheet = [...document.styleSheets].find(item => item.href?.includes('theme-graphite.css'));
-      return {
-        dataset: { ...root.dataset },
-        stage: getComputedStyle(root).getPropertyValue('--workout-stage-dark').trim(),
-        phaseRuleLoaded: !!sheet && [...sheet.cssRules].some(rule => rule.selectorText?.includes('[data-workout-phase]')),
-        matchedPhaseRule: root.matches(':root[data-palette="standard"][data-theme="dark"][data-workout-phase]'),
-        inlineStyle: root.getAttribute('style'),
-        backgroundRules: [...document.styleSheets].flatMap((source, sourceIndex) => [...source.cssRules].flatMap((rule, ruleIndex) => {
-          if (!rule.selectorText || !(rule.style.background || rule.style.backgroundColor)) return [];
-          return [root, document.body].flatMap((node, nodeIndex) => {
-            try {
-              if (!node.matches(rule.selectorText)) return [];
-              return [{ sourceIndex, ruleIndex, nodeIndex, selector: rule.selectorText, background: rule.style.background, backgroundColor: rule.style.backgroundColor }];
-            } catch { return []; }
-          });
-        })),
-        colors: [root, document.body].map(node => getComputedStyle(node).backgroundColor.match(/\d+/g).slice(0, 3).map(Number)),
-      };
-    });
-    const colors = diagnostic.colors;
-    for (const channels of colors) {
-      expect(channels[dominant], JSON.stringify(diagnostic)).toBeGreaterThanOrEqual(Math.max(...channels.filter((_, index) => index !== dominant)) + 12);
-    }
+  async function expectPhaseHue(phase) {
+    const root = page.locator('html'), body = page.locator('body');
+    await expect(root).toHaveAttribute('data-workout-phase', phase);
+    await expect(body).toHaveClass(/workout-active/);
+    const theme = await root.getAttribute('data-theme');
+    const colors = {
+      dark: { run: 'rgb(74, 25, 36)', walk: 'rgb(18, 63, 47)', warmup: 'rgb(20, 57, 91)', cooldown: 'rgb(20, 57, 91)' },
+      light: { run: 'rgb(255, 224, 229)', walk: 'rgb(223, 248, 233)', warmup: 'rgb(222, 235, 255)', cooldown: 'rgb(222, 235, 255)' },
+    };
+    const color = colors[theme]?.[phase];
+    expect(color).toBeTruthy();
+    await expect(root).toHaveCSS('background-color', color);
+    await expect(body).toHaveCSS('background-color', color);
+    await expect(body).toHaveCSS('background-image', /radial-gradient/);
   }
 
   async function contrastRatio(selector) {
@@ -137,16 +123,16 @@ test('Aurora workout background follows the interval and light notices stay read
     });
   }
 
-  await expectPhaseHue('warmup', 2);
+  await expectPhaseHue('warmup');
   await page.locator('#workoutSkip').click();
-  await expectPhaseHue('run', 0);
+  await expectPhaseHue('run');
   await page.locator('#workoutPause').click();
   await expect(page.locator('#workoutRing')).toHaveAttribute('data-phase', 'rest');
-  await expectPhaseHue('run', 0);
+  await expectPhaseHue('run');
   await page.locator('#workoutPause').click();
   const untilWalk = await page.evaluate(() => currentTimer.segmentEnd - Date.now());
   await page.clock.fastForward(untilWalk + 400);
-  await expectPhaseHue('walk', 1);
+  await expectPhaseHue('walk');
 
   await page.locator('#workoutBack').click();
   await expect(page.locator('html')).not.toHaveAttribute('data-workout-phase', /.+/);
@@ -154,7 +140,7 @@ test('Aurora workout background follows the interval and light notices stay read
   await page.locator('#themeToggle').click();
   await page.locator('#nav-dashboard').click();
   await startWorkout(page);
-  await expectPhaseHue('walk', 1);
+  await expectPhaseHue('walk');
   const untilCue = await page.evaluate(() => currentTimer.segmentEnd - Date.now() - 9_500);
   await page.clock.fastForward(untilCue);
   await expect(page.locator('#phaseCountdown')).toBeVisible();
@@ -167,7 +153,7 @@ test('Aurora workout background follows the interval and light notices stay read
     currentTimer.segmentEnd - Date.now() + currentTimer.segments.slice(currentTimer.index + 1, -1).reduce((total, segment) => total + segment.seconds * 1000, 0)
   );
   await page.clock.fastForward(untilCooldown + 400);
-  await expectPhaseHue('cooldown', 2);
+  await expectPhaseHue('cooldown');
   page.on('dialog', dialog => dialog.accept());
   await page.locator('#workoutFinish').click();
   await expect(page.locator('.workout-feedback-page')).toBeVisible();
