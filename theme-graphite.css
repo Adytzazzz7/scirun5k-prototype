@@ -113,6 +113,40 @@ body,button,input,select,textarea{font-family:Barlow,"Avenir Next",Arial,sans-se
 #account .weekly-inline p{margin:0 0 12px}
 #history .recent-card{margin-bottom:18px}
 
+/* Aurora Teal: clearer secondary text and a lighter schedule hierarchy. */
+:root[data-palette="standard"] .home-side .cardhead small,
+:root[data-palette="standard"] .recent-session small{color:var(--muted)}
+:root[data-palette="standard"] #account .weekly-inline{
+  margin:18px 0 12px;padding:16px 0 0;
+  border:0;border-top:1px solid var(--line);border-radius:0;background:none;
+}
+:root[data-palette="standard"][data-contrast="normal"] .home-stats .stat,
+:root[data-palette="standard"][data-contrast="normal"] #history .history-stats .stat{
+  background:radial-gradient(circle at 100% 0%,rgba(var(--palette-secondary-rgb),.11),transparent 9rem),var(--surface);
+}
+@media(max-width:720px){
+  :root[data-palette="standard"] .nav button{font-size:.75rem}
+  :root[data-palette="standard"] .home-stats .stat .k,
+  :root[data-palette="standard"] .workout-metrics small,
+  :root[data-palette="standard"] .home-speed-stats small,
+  :root[data-palette="standard"] .recent-session span,
+  :root[data-palette="standard"] .week-day span,
+  :root[data-palette="standard"] .week-day small,
+  :root[data-palette="standard"] .status,
+  :root[data-palette="standard"] .active-timer-copy span{font-size:.75rem}
+  :root[data-palette="standard"] .distance-column strong,
+  :root[data-palette="standard"] .distance-column small{font-size:.75rem;letter-spacing:-.02em}
+  :root[data-palette="standard"] .workout-current,
+  :root[data-palette="standard"] .workout-heading #timerState{font-size:.78rem}
+  :root[data-palette="standard"] .workout-timer-state,
+  :root[data-palette="standard"] .session-progress-legend{font-size:.75rem}
+  :root[data-palette="standard"] .workout-recommended-speed{font-size:.86rem}
+  :root[data-palette="standard"] .workout-ring > .phase-countdown{font-size:.8rem}
+}
+@media(max-width:380px){
+  :root[data-palette="standard"] .distance-bars{height:165px}
+}
+
 /* Pearl Aqua keeps Aurora Teal legible in light mode. */
 :root[data-theme="light"]{
   color-scheme:light;--paper:#f1faf9;--white:rgba(255,255,255,.78);--surface:rgba(255,255,255,.78);--surface-strong:rgba(255,255,255,.95);--surface-soft:rgba(227,243,240,.82);--nav-surface:rgba(245,252,250,.84);
@@ -159,6 +193,28 @@ html[data-theme="light"] .active-timer-preview{background:rgba(255,255,255,.65);
 html[data-theme="light"] .active-timer-dial-inner{background:#f1faf9}
 html[data-theme="light"] .active-timer-digits,html[data-theme="light"] .active-timer-copy strong{color:#173431}
 html[data-theme="light"] .active-timer-copy span{color:#4d6764}
+
+/* Aurora Teal keeps the whole workout canvas in the current interval color. */
+:root[data-palette="standard"][data-workout-phase="run"]{--workout-stage-rgb:var(--phase-run-rgb);--workout-stage-dark:#4a1924;--workout-stage-light:#ffe0e5}
+:root[data-palette="standard"][data-workout-phase="walk"]{--workout-stage-rgb:var(--phase-walk-rgb);--workout-stage-dark:#123f2f;--workout-stage-light:#dff8e9}
+:root[data-palette="standard"][data-workout-phase="warmup"]{--workout-stage-rgb:var(--phase-warmup-rgb);--workout-stage-dark:#14395b;--workout-stage-light:#deebff}
+:root[data-palette="standard"][data-workout-phase="cooldown"]{--workout-stage-rgb:var(--phase-cooldown-rgb);--workout-stage-dark:#14395b;--workout-stage-light:#deebff}
+:root[data-palette="standard"][data-theme="dark"][data-workout-phase]{background:var(--workout-stage-dark)}
+:root[data-palette="standard"][data-theme="dark"][data-workout-phase] body.workout-active{
+  background:radial-gradient(ellipse at 14% 5%,rgba(var(--workout-stage-rgb),.22),transparent 46%),radial-gradient(ellipse at 91% 96%,rgba(var(--workout-stage-rgb),.13),transparent 50%),var(--workout-stage-dark);
+}
+:root[data-palette="standard"][data-contrast="normal"][data-theme="dark"][data-workout-phase] body.workout-active{
+  --surface:rgba(7,22,28,.7);--surface-strong:rgba(7,22,28,.92);--surface-soft:rgba(7,22,28,.76);
+}
+:root[data-palette="standard"][data-theme="light"][data-workout-phase]{background:var(--workout-stage-light)}
+:root[data-palette="standard"][data-theme="light"][data-workout-phase] body.workout-active{
+  background:radial-gradient(ellipse at 15% 5%,rgba(var(--workout-stage-rgb),.07),transparent 48%),radial-gradient(ellipse at 91% 95%,rgba(255,255,255,.45),transparent 50%),var(--workout-stage-light);
+}
+/* Transition cues and notices need an opaque surface in light mode. */
+:root[data-palette="standard"][data-theme="light"] body.workout-active .workout-ring > .phase-countdown,
+:root[data-palette="standard"][data-theme="light"] .toast{
+  color:#173431;background:#fff;border:1px solid rgba(23,52,49,.28);box-shadow:0 8px 22px rgba(23,52,49,.14);
+}
 @media(prefers-reduced-motion:reduce){.active-timer-surface,.active-timer-dial[data-imminent="true"]{animation:none}}
 @media(prefers-reduced-transparency:reduce){
   .card,.stat,.formcard,.week,.history-entry,.modal,.glass-panel,.glass-control,.nav,.topbar{backdrop-filter:none;-webkit-backdrop-filter:none;background:var(--surface-strong)}

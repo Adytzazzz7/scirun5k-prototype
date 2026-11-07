@@ -79,7 +79,7 @@ function renderWorkoutPage(){
  const focusedId=page.contains(document.activeElement)?document.activeElement.id:null;
  const previousAnnouncement=$('workoutAnnouncement');
  showView('workout');
- if(workoutMode!=='timer'||pendingSession||!currentTimer){delete page.dataset.announcedPhase;delete page.dataset.announcedCountdown;}
+ if(workoutMode!=='timer'||pendingSession||!currentTimer){delete page.dataset.announcedPhase;delete page.dataset.announcedCountdown;delete document.documentElement.dataset.workoutPhase;}
  if(workoutMode==='abandon-confirm'){renderAbandonConfirmation(page);return;}
  if(workoutMode==='feedback-discard-confirm'){renderFeedbackDiscardConfirmation(page);return;}
  if(pendingSession){renderWorkoutFeedbackPage(page);restoreWorkoutFocus(focusedId);return;}
@@ -103,6 +103,7 @@ function updateWorkoutPage(){
  if(!currentTimer)return;
  const ring=$('workoutRing');if(!ring)return;
  const seg=currentTimer.segments[currentTimer.index];if(!seg)return;
+ if(document.body.classList.contains('workout-active'))document.documentElement.dataset.workoutPhase=seg.type;
  const remaining=currentTimer.paused?currentTimer.remaining:Math.max(0,(currentTimer.segmentEnd-Date.now())/1000);
  const elapsedInSegment=Math.max(0,seg.seconds-remaining);
  const segmentPercent=Math.min(100,elapsedInSegment/Math.max(1,seg.seconds)*100);

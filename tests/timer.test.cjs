@@ -1162,7 +1162,7 @@ test('workout renders share one wake lock and late requests release after leavin
   let active=false, requests=0, releases=0, resolveLock;
   const context=experienceContext({
     $: id => id === 'heroStartLabel' ? {} : null,
-    document:{visibilityState:'visible',querySelectorAll:()=>[],
+    document:{visibilityState:'visible',querySelectorAll:()=>[],documentElement:{dataset:{workoutPhase:'run'}},
       body:{classList:{toggle:(name,value)=>{if(name==='workout-active')active=value;},contains:()=>active}}},
     window:{addEventListener:()=>{},scrollTo:()=>{}},
     navigator:{wakeLock:{request:()=>{requests++;return new Promise(resolve=>{resolveLock=resolve;});}}}
@@ -1171,6 +1171,7 @@ test('workout renders share one wake lock and late requests release after leavin
   context.showView('workout');
   assert.equal(requests,1);
   context.showView('dashboard');
+  assert.equal(context.document.documentElement.dataset.workoutPhase,undefined);
   resolveLock({release:()=>{releases++;return Promise.resolve();},addEventListener:()=>{},released:false});
   await new Promise(resolve=>setImmediate(resolve));
   assert.equal(releases,1);
