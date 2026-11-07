@@ -103,6 +103,17 @@ test('Aurora workout background follows the interval and light notices stay read
         dataset: { ...root.dataset },
         stage: getComputedStyle(root).getPropertyValue('--workout-stage-dark').trim(),
         phaseRuleLoaded: !!sheet && [...sheet.cssRules].some(rule => rule.selectorText?.includes('[data-workout-phase]')),
+        matchedPhaseRule: root.matches(':root[data-palette="standard"][data-theme="dark"][data-workout-phase]'),
+        inlineStyle: root.getAttribute('style'),
+        backgroundRules: [...document.styleSheets].flatMap((source, sourceIndex) => [...source.cssRules].flatMap((rule, ruleIndex) => {
+          if (!rule.selectorText || !(rule.style.background || rule.style.backgroundColor)) return [];
+          return [root, document.body].flatMap((node, nodeIndex) => {
+            try {
+              if (!node.matches(rule.selectorText)) return [];
+              return [{ sourceIndex, ruleIndex, nodeIndex, selector: rule.selectorText, background: rule.style.background, backgroundColor: rule.style.backgroundColor }];
+            } catch { return []; }
+          });
+        })),
         colors: [root, document.body].map(node => getComputedStyle(node).backgroundColor.match(/\d+/g).slice(0, 3).map(Number)),
       };
     });
