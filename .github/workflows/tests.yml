@@ -80,10 +80,110 @@ jobs:
           cp "$build_tools/lib/apksigner.jar" "$staged/apksigner.jar"
           java -jar "$staged/apksigner.jar" version
           (cd "$staged" && sha256sum app-release-aligned-unsigned.apk apksigner.jar > SHA256SUMS)
-      - name: Upload unsigned release for local signing
+      - name: Split unsigned release for transfer
+        shell: bash
+        run: |
+          set -euo pipefail
+          staged="$RUNNER_TEMP/scirun-unsigned-release"
+          archive="$RUNNER_TEMP/scirun-release.tar"
+          parts="$RUNNER_TEMP/scirun-release-parts"
+          mkdir -p "$parts"
+          tar -C "$staged" -cf "$archive" app-release-aligned-unsigned.apk apksigner.jar SHA256SUMS
+          split -b 700K -d -a 2 "$archive" "$parts/part-"
+          count="$(find "$parts" -maxdepth 1 -name 'part-*' -type f | wc -l)"
+          test "$count" -le 10
+          (cd "$parts" && sha256sum part-* > PARTS.SHA256)
+          (cd "$RUNNER_TEMP" && sha256sum scirun-release.tar > "$parts/ARCHIVE.SHA256")
+          cp "$staged/SHA256SUMS" "$parts/FILES.SHA256"
+          printf '%s\n' "$count" > "$parts/PART_COUNT"
+      - name: Upload release checksums
         uses: actions/upload-artifact@v7.0.2
         with:
-          name: scirun-unsigned-release
-          path: ${{ runner.temp }}/scirun-unsigned-release/
+          name: scirun-release-manifest
+          path: |
+            ${{ runner.temp }}/scirun-release-parts/PARTS.SHA256
+            ${{ runner.temp }}/scirun-release-parts/ARCHIVE.SHA256
+            ${{ runner.temp }}/scirun-release-parts/FILES.SHA256
+            ${{ runner.temp }}/scirun-release-parts/PART_COUNT
           if-no-files-found: error
           retention-days: 7
+      - name: Upload release part 00
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: scirun-release-part-00
+          path: ${{ runner.temp }}/scirun-release-parts/part-00
+          if-no-files-found: ignore
+          retention-days: 7
+          compression-level: 0
+      - name: Upload release part 01
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: scirun-release-part-01
+          path: ${{ runner.temp }}/scirun-release-parts/part-01
+          if-no-files-found: ignore
+          retention-days: 7
+          compression-level: 0
+      - name: Upload release part 02
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: scirun-release-part-02
+          path: ${{ runner.temp }}/scirun-release-parts/part-02
+          if-no-files-found: ignore
+          retention-days: 7
+          compression-level: 0
+      - name: Upload release part 03
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: scirun-release-part-03
+          path: ${{ runner.temp }}/scirun-release-parts/part-03
+          if-no-files-found: ignore
+          retention-days: 7
+          compression-level: 0
+      - name: Upload release part 04
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: scirun-release-part-04
+          path: ${{ runner.temp }}/scirun-release-parts/part-04
+          if-no-files-found: ignore
+          retention-days: 7
+          compression-level: 0
+      - name: Upload release part 05
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: scirun-release-part-05
+          path: ${{ runner.temp }}/scirun-release-parts/part-05
+          if-no-files-found: ignore
+          retention-days: 7
+          compression-level: 0
+      - name: Upload release part 06
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: scirun-release-part-06
+          path: ${{ runner.temp }}/scirun-release-parts/part-06
+          if-no-files-found: ignore
+          retention-days: 7
+          compression-level: 0
+      - name: Upload release part 07
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: scirun-release-part-07
+          path: ${{ runner.temp }}/scirun-release-parts/part-07
+          if-no-files-found: ignore
+          retention-days: 7
+          compression-level: 0
+      - name: Upload release part 08
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: scirun-release-part-08
+          path: ${{ runner.temp }}/scirun-release-parts/part-08
+          if-no-files-found: ignore
+          retention-days: 7
+          compression-level: 0
+      - name: Upload release part 09
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: scirun-release-part-09
+          path: ${{ runner.temp }}/scirun-release-parts/part-09
+          if-no-files-found: ignore
+          retention-days: 7
+          compression-level: 0
