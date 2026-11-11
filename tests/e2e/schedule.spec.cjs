@@ -8,6 +8,7 @@ test('changes weekly frequency and moves a workout past unavailable dates', asyn
   await createProfile(page);
   await page.locator('#nav-account').click();
   await expect(page.locator('#account')).toHaveClass(/active/);
+  await page.locator('#account .concept-program-summary').click();
 
   await page.locator('#settingFrequency').selectOption('3');
   for (const day of [1, 2, 3]) await page.locator('#scheduleDays input[value="' + day + '"]').check();
@@ -18,6 +19,7 @@ test('changes weekly frequency and moves a workout past unavailable dates', asyn
   expect(state.profile.trainingDays).toEqual([1, 2, 3]);
 
   const estimateBefore = await page.locator('#goalDate').textContent();
+  await page.locator('#account .concept-account-detail').first().locator('summary').click();
   await page.locator('#unavailableStart').fill('2026-11-03');
   await page.locator('#unavailableEnd').fill('2026-11-09');
   await page.locator('#addUnavailable').click();

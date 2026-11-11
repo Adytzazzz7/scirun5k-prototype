@@ -20,7 +20,7 @@ test('timer liquid rises from the bottom to the top without changing training da
     currentTimer.segmentEnd = Date.now() + seconds * 500;
     updateWorkoutPage();
   });
-  await page.waitForTimeout(400);
+  await page.waitForTimeout(700);
   const mid = await ring.evaluate(node => ({
     level: parseFloat(node.style.getPropertyValue('--liquid-level')),
     fill: node.querySelector('.liquid-wave-front').getBoundingClientRect().height,
@@ -35,7 +35,7 @@ test('timer liquid rises from the bottom to the top without changing training da
     currentTimer.segmentEnd = Date.now() + seconds * 10;
     updateWorkoutPage();
   });
-  await page.waitForTimeout(400);
+  await page.waitForTimeout(700);
   const nearEnd = await ring.evaluate(node => ({
     level: parseFloat(node.style.getPropertyValue('--liquid-level')),
     fill: node.querySelector('.liquid-wave-front').getBoundingClientRect().height,

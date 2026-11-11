@@ -44,8 +44,12 @@ test('both palettes keep selected controls readable in light mode', async ({ pag
       };
       return ['#nav-settings', '[data-palette-choice][aria-pressed="true"] .palette-choice-check']
         .map(selector => {
-          const style = getComputedStyle(document.querySelector(selector));
-          const a = luminance(style.color), b = luminance(style.backgroundColor);
+          const element = document.querySelector(selector);
+          const style = getComputedStyle(element);
+          const background = style.backgroundColor === 'rgba(0, 0, 0, 0)'
+            ? getComputedStyle(element.closest('[data-palette-choice]')).backgroundColor
+            : style.backgroundColor;
+          const a = luminance(style.color), b = luminance(background);
           return [selector, (Math.max(a, b) + .05) / (Math.min(a, b) + .05)];
         });
     });

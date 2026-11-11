@@ -37,6 +37,7 @@ test('mobile preferences show their state and persist across reload and language
   await expect(sound).toHaveAttribute('aria-pressed', 'false');
   await expect(vibration).toHaveAttribute('aria-pressed', 'true');
   await expect(theme).toHaveAttribute('aria-pressed', 'false');
+  await page.locator('#settings .concept-language-row summary').click();
   await page.locator('#lang-en').click();
   await expect(sound.locator('.preference-toggle-state')).toHaveText('Off');
   await expect(vibration.locator('.preference-toggle-state')).toHaveText('On');
@@ -104,7 +105,7 @@ test('mobile timer uses a continuous liquid arc and phase-colored pulse', async 
     return { animationName: style.animationName, animationDuration: style.animationDuration };
   });
   expect(pulse.animationName).toBe('handoff-pulse');
-  expect(pulse.animationDuration).toBe('1.05s');
+  expect(pulse.animationDuration).toBe('1.15s');
   await page.clock.fastForward(4_900);
   await expect(ring).toHaveAttribute('data-phase', 'run');
   await expect(ring).toHaveAttribute('data-imminent', 'false');
@@ -115,8 +116,8 @@ test('mobile timer uses a continuous liquid arc and phase-colored pulse', async 
   );
   await page.clock.fastForward(untilCooldown + 400);
   await expect(ring).toHaveAttribute('data-phase', 'cooldown');
-  await expect(ring).toHaveCSS('--phase-color', 'rgb(137, 194, 238)');
-  await expect(wave).toHaveCSS('fill', 'rgb(137, 194, 238)');
+  await expect(ring).toHaveCSS('--phase-color', 'rgb(111, 169, 255)');
+  await expect(wave).toHaveCSS('fill', 'rgb(111, 169, 255)');
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await expect(wave).toHaveCSS('animation-name', 'none');
   expect(await ring.evaluate(el => getComputedStyle(el).animationName)).toBe('none');

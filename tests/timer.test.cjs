@@ -125,7 +125,7 @@ test('the selected theme and its font weights are available offline', () => {
   const css = fs.readFileSync(path.join(root, 'theme-graphite.css'), 'utf8');
   const worker = fs.readFileSync(path.join(root, 'sw.js'), 'utf8');
   assert.match(html, /href="theme-graphite\.css"/);
-  for (const asset of ['theme-graphite.css', 'palette-options.css', 'fonts/Barlow-Regular.ttf', 'fonts/Barlow-SemiBold.ttf', 'fonts/Barlow-Bold.ttf', 'fonts/Barlow-Black.ttf']) {
+  for (const asset of ['theme-graphite.css', 'palette-options.css', 'concept-screens.css', 'concept-workout.css', 'fonts/Barlow-Regular.ttf', 'fonts/Barlow-SemiBold.ttf', 'fonts/Barlow-Bold.ttf', 'fonts/Barlow-Black.ttf']) {
     assert.ok(worker.includes("./" + asset), asset + ' is precached');
     assert.equal(fs.existsSync(path.join(root, asset)), true, asset);
   }

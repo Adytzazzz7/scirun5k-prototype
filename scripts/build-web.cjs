@@ -10,7 +10,7 @@ if (path.dirname(output) !== root || path.basename(output) !== 'www') {
 
 const assets = [
   'index.html', 'app.css', 'liquid-glass.css', 'experience.css',
-  'theme-graphite.css', 'palette-options.css', 'manifest.json',
+  'theme-graphite.css', 'palette-options.css', 'concept-screens.css', 'concept-workout.css', 'manifest.json',
   'timer-core.js', 'pending-session-store.js', 'dashboard-metrics.js',
   'workout-view.js', 'state-backup.js', 'experience.js', 'sw.js',
   'icon.svg', 'icon-192.png', 'icon-512.png',

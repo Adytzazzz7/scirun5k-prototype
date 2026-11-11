@@ -81,6 +81,7 @@
     const remaining = currentTimer.paused ? currentTimer.remaining : Math.max(0, (currentTimer.segmentEnd - Date.now()) / 1000);
     const percent = Math.min(100, Math.max(0, (segment.seconds - remaining) / segment.seconds * 100));
     const visual = workoutVisualState(segment, currentTimer.segments[currentTimer.index + 1], remaining, currentTimer.paused);
+    preview.style.setProperty('--phase-color', 'rgb(' + visual.rgb.join(', ') + ')');
     const dial = $('dashboardTimerDial');
     dial.style.setProperty('--timer-progress', percent + '%');
     dial.style.setProperty('--phase-color', 'rgb(' + visual.rgb.join(', ') + ')');
@@ -280,6 +281,10 @@
   function kmText(km) {
     return (Math.round(km * 100) / 100).toLocaleString(lang === 'ro' ? 'ro-RO' : 'en-GB', { minimumFractionDigits: km % 1 ? 1 : 0, maximumFractionDigits: 2 }) + ' km';
   }
+  function conceptDuration(seconds) {
+    const rounded = Math.max(0, Math.round(Number(seconds) || 0));
+    return rounded % 60 === 0 ? Math.round(rounded / 60) + ' min' : formatSeconds(rounded);
+  }
   function dateInWords(date) {
     const options = { day: 'numeric', month: 'short' };
     return dateLabel(date, options);
@@ -287,17 +292,19 @@
 
   function drawDistanceChart() {
     const target = $('distanceChart');
-    const sessions = state.history.filter(s => sessionDistance(s) !== null).slice(-6);
+    const recorded = state.history.filter(s => sessionDistance(s) !== null);
+    const sessions = recorded.slice(-6);
     if (sessions.length < 2) {
       target.innerHTML = '<div class="chart-empty">' + txt('Graficul apare după două sesiuni cu distanță raportată.', 'The chart appears after two sessions with a reported distance.') + '</div>';
       return;
     }
     const max = Math.max(0.1, ...sessions.map(sessionDistance));
-    target.innerHTML = '<div class="distance-bars" role="img" aria-label="' + txt('Distanțe reale raportate pe sesiune', 'Actual distance reported per session') + '">' + sessions.map(s => {
+    const values = sessions.map(s => dateLabel(s.completedAt || s.date, { day: 'numeric', month: 'short' }) + ': ' + kmText(sessionDistance(s))).join('; ');
+    target.innerHTML = '<div class="distance-bars" role="img" aria-label="' + txt('Distanțe reale raportate pe sesiune: ', 'Actual distance reported per workout: ') + values + '">' + sessions.map(s => {
       const value = sessionDistance(s);
       const height = Math.max(10, Math.round(value / max * 100));
-      return '<div class="distance-column"><strong>' + kmText(value) + '</strong><div class="bar-track"><i style="height:' + height + '%"></i></div><small>' + dateLabel(s.completedAt || s.date, { day: 'numeric', month: 'short' }) + '</small></div>';
-    }).join('') + '</div>';
+      return '<div class="distance-column" aria-hidden="true"><i style="--bar-h:' + height + '%"></i></div>';
+    }).join('') + '</div><div class="concept-distance-labels"><span>' + txt('Sesiunea ', 'Workout ') + (recorded.length - sessions.length + 1) + '</span><span>' + txt('Sesiunea ', 'Workout ') + recorded.length + '</span></div>';
   }
 
   function renderWeeklyView() {
@@ -337,11 +344,15 @@
     $('goalDateNote').textContent = txt('Orientativ · se actualizează după feedback', 'Estimated · updates after feedback');
     $('nextWorkoutTitle').textContent = stageData.name[lang];
     $('nextWorkoutDesc').textContent = stageData.desc[lang];
-    $('nextWeekTag').textContent = txt('Săptămâna ' + weeksOut, 'Week ' + weeksOut);
+    const sessionNumber = state.history.filter(item => Number(item.week) === weeksOut).length + 1;
+    $('nextWeekTag').textContent = txt('Săptămâna ' + weeksOut + ' · Sesiunea ' + sessionNumber, 'Week ' + weeksOut + ' · Workout ' + sessionNumber);
     const segments = buildSegments(state.level, state.reduceNext ? 0.8 : 1);
-    $('workoutDuration').textContent = formatSeconds(segments.reduce((sum, item) => sum + item.seconds, 0));
-    $('suggestedSpeed').textContent = speedFor('run') ? speedFor('run').toFixed(1) + ' km/h' : txt('La prima sesiune', 'First workout');
-    $('longestRunPlan').textContent = formatSeconds(segments.filter(item => item.type === 'run').reduce((sum, item) => sum + item.seconds, 0));
+    $('workoutDuration').textContent = conceptDuration(segments.reduce((sum, item) => sum + item.seconds, 0));
+    const suggestedRunSpeed = speedFor('run');
+    $('suggestedSpeed').textContent = suggestedRunSpeed
+      ? suggestedRunSpeed.toLocaleString(lang === 'ro' ? 'ro-RO' : 'en-GB', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' km/h'
+      : txt('La prima sesiune', 'First workout');
+    $('longestRunPlan').textContent = conceptDuration(segments.filter(item => item.type === 'run').reduce((sum, item) => sum + item.seconds, 0));
     const chipClasses = { warmup: 'warmup', run: 'running', walk: 'walking', cooldown: 'cooldown' };
     const chipLabels = { warmup: txt('ÎNCĂLZIRE', 'WARM-UP'), run: txt('ALERGARE', 'RUN'), walk: txt('MERS', 'WALK'), cooldown: txt('REVENIRE', 'COOL-DOWN') };
     $('phaseChips').innerHTML = segments.map(segment => '<span class="phase-chip ' + chipClasses[segment.type] + '">● &nbsp; ' + formatSeconds(segment.seconds) + ' ' + chipLabels[segment.type] + '</span>').join('');
@@ -359,6 +370,10 @@
     $('historyLongest').textContent = longestContinuousMinutes() ? longestContinuousMinutes() + ' ' + txt('min', 'min') : '—';
     const target = $('historyList');
     const entries = [...state.history].sort((a, b) => String(b.completedAt || b.date).localeCompare(String(a.completedAt || a.date)));
+    const months = new Set(entries.map(item => dateLabel(item.completedAt || item.date, { month: 'long', year: 'numeric' })));
+    const latestMonth = entries.length ? dateLabel(entries[0].completedAt || entries[0].date, { month: 'long', year: 'numeric' }) : '';
+    $('historyMonth').textContent = months.size > 1 ? txt('Toate lunile', 'All months')
+      : latestMonth ? latestMonth.charAt(0).toLocaleUpperCase(lang === 'ro' ? 'ro-RO' : 'en-GB') + latestMonth.slice(1) : '';
     if (!entries.length) {
       target.innerHTML = '<div class="empty history-empty">' + txt('Nicio sesiune salvată încă.', 'No saved workouts yet.') + '</div>';
       return;
@@ -368,8 +383,8 @@
       const year = new Date(when).getFullYear();
       const yearLabel = Number.isFinite(year) && year !== new Date().getFullYear() ? '<small class="history-year">' + year + '</small>' : '';
       const stageName = STAGES[s.level]?.name?.[lang] || txt('Antrenament', 'Workout');
-      const distance = sessionDistance(s) === null ? txt('Distanță necompletată', 'Distance not entered') : kmText(sessionDistance(s));
-      return '<article class="history-entry"><div class="history-entry-date"><strong>' + dateLabel(when, { day: '2-digit' }) + '</strong><small>' + dateLabel(when, { month: 'short' }) + '</small>' + yearLabel + '</div><div class="history-entry-main"><strong>' + stageName + '</strong><span>' + formatSeconds(s.elapsed || 0) + ' · ' + distance + '</span><small>' + effortNames[s.effort || 'moderate'] + '</small></div><span class="status ' + s.status + '">' + (s.status === 'done' ? txt('Completă', 'Complete') : txt('Parțială', 'Partial')) + '</span></article>';
+      const distance = sessionDistance(s) === null ? txt('Distanță necompletată', 'Distance not entered') : kmText(sessionDistance(s)) + txt(' raportat', ' reported');
+      return '<details class="history-entry"><summary class="history-entry-summary"><span class="history-entry-date"><strong>' + dateLabel(when, { day: '2-digit' }) + '</strong><small>' + dateLabel(when, { month: 'short' }) + '</small>' + yearLabel + '</span><span class="history-entry-main"><strong>' + stageName + '</strong><span>' + conceptDuration(s.elapsed || 0) + ' · ' + distance + '</span></span><span class="status ' + s.status + '">' + (s.status === 'done' ? txt('Completă', 'Complete') : txt('Parțială', 'Partial')) + '</span></summary><div class="concept-history-extra"><span>' + txt('Efort raportat: ', 'Reported effort: ') + effortNames[s.effort || 'moderate'] + '</span><span>' + dateLabel(when, { day: 'numeric', month: 'long', year: 'numeric' }) + '</span></div></details>';
     }).join('');
   }
 
@@ -397,6 +412,16 @@
     if (!state.profile) return;
     applyPalette(document.documentElement.dataset.palette || 'standard', false);
     renderPreferenceToggle('contrastToggle', highContrastEnabled, txt('Contrast ridicat', 'High contrast'));
+    $('languageSummary').textContent = txt('Română', 'English');
+    const frequency = Number(state.profile.sessionsPerWeek) || 3;
+    $('conceptProgramSummary').textContent = txt(frequency + ' sesiuni pe săptămână. Schimbările viitoare păstrează istoricul.', frequency + ' workouts per week. Future changes keep your history.');
+    const chosenDays = new Set((state.profile.trainingDays || []).map(Number));
+    document.querySelectorAll('#conceptWeekdays [data-concept-day]').forEach(chip => {
+      const day = Number(chip.dataset.conceptDay);
+      chip.textContent = weekdayName(day, true).slice(0, 1).toLocaleUpperCase(lang === 'ro' ? 'ro-RO' : 'en-GB');
+      chip.classList.toggle('is-selected', chosenDays.has(day));
+      chip.setAttribute('aria-label', weekdayName(day, false));
+    });
     $('settingFrequency').value = String(state.profile.sessionsPerWeek || 3);
     document.querySelectorAll('#scheduleDays input').forEach(c => c.checked = (state.profile.trainingDays || []).includes(Number(c.value)));
     renderPreferenceToggle('soundPreference', soundEnabled, txt('Semnale sonore', 'Sound cues'));

@@ -15,6 +15,10 @@ test('built Android page establishes the native bridge before the service worker
   assert.ok(bridge, 'native bridge is present in the packaged page');
   assert.doesNotMatch(`${bridge[1]} ${bridge[2]}`, /\b(?:defer|async)\b/i);
   assert.ok(bridge.index < html.indexOf("if(!window.SciRunNative?.isNative&&'serviceWorker'"));
+  for (const stylesheet of ['concept-screens.css', 'concept-workout.css']) {
+    assert.match(html, new RegExp(`href="${stylesheet.replace('.', '\\.')}"`));
+    assert.equal(fs.existsSync(path.join(root, 'www', stylesheet)), true, stylesheet);
+  }
 });
 
 test('native reset cache cleanup removes generated backups and preserves other cache files', async () => {

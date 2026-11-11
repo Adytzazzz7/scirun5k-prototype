@@ -167,7 +167,7 @@ test('phase and countdown announcements are outside image semantics and update o
   assert.ok(live, 'a separate live status is rendered');
   assert.equal(live.getAttribute('role'), 'status');
   assert.equal(live.getAttribute('aria-atomic'), 'true');
-  assert.ok(ancestorRoles(page.innerHTML, 'phaseCountdown').includes('img'));
+  assert.ok(!ancestorRoles(page.innerHTML, 'phaseCountdown').includes('img'));
   assert.ok(!ancestorRoles(page.innerHTML, 'currentInterval').includes('img'));
   assert.ok(!ancestorRoles(page.innerHTML, 'workoutAnnouncement').includes('img'));
   assert.equal(get('currentInterval').getAttribute('aria-live'), null);
@@ -180,7 +180,7 @@ test('phase and countdown announcements are outside image semantics and update o
 
   timer.segmentEnd = 1_009_800;
   context.updateWorkoutPage();
-  assert.match(live.textContent, /In 10 seconds: Run/);
+  assert.match(live.textContent, /In 10 seconds: increase speed to 6.0 km\/h/);
   const warningWrites = live.textWrites;
   context.updateWorkoutPage();
   timer.segmentEnd = 1_008_800;

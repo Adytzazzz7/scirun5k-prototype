@@ -1,6 +1,23 @@
 const { expect, test } = require('@playwright/test');
 const { createProfile, startWorkout } = require('./helpers.cjs');
 
+test('workout follows the approved compact Aurora layout with real timer values', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await createProfile(page);
+  await startWorkout(page);
+  await expect(page.locator('#workoutBack')).toContainText('Panou');
+  await expect(page.locator('#roundCount')).toContainText('Intervalul 1 din');
+  await expect(page.locator('#workoutRing .workout-ring-svg circle')).toHaveCount(2);
+  await expect(page.locator('.workout-next #nextInterval')).toHaveText('Alergare');
+  await expect(page.locator('#workoutPause')).toHaveText('Pauză');
+  await expect(page.locator('#workoutSkip')).toHaveText('Sari intervalul');
+  await expect(page.locator('#workoutFinish')).toHaveText('Oprește');
+  await expect(page.locator('#workoutAbandon')).toHaveText('Abandonează sesiunea');
+  expect(await page.locator('#workoutRing #phaseCountdown').count()).toBe(0);
+  const order = await page.locator('#currentInterval, #workoutRing, #roundBar, .workout-next, .workout-controls').evaluateAll(nodes => nodes.map(node => Math.round(node.getBoundingClientRect().top)));
+  expect(order).toEqual([...order].sort((a, b) => a - b));
+});
+
 test('mobile workout gives phase, timer, speed and next duration a clear order', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await createProfile(page);
@@ -12,11 +29,13 @@ test('mobile workout gives phase, timer, speed and next duration a clear order',
   expect(phase.y + phase.height).toBeLessThan(ring.y);
   expect(time.y + time.height).toBeLessThan(speed.y);
   await expect(page.locator('.workout-next #nextDuration')).toHaveText(await page.evaluate(() =>
-    formatSeconds(currentTimer.segments[currentTimer.index + 1].seconds)
+    formatSeconds(currentTimer.segments[currentTimer.index + 1].seconds).replace(/^0(?=\d:)/, '')
   ));
-  await expect(page.locator('.workout-rounds #elapsedTotal')).toBeVisible();
-  const trackMask = await page.locator('#workoutRing').evaluate(el => getComputedStyle(el, '::after').maskImage);
-  expect(trackMask).toContain('radial-gradient');
+  await expect(page.locator('.workout-rounds .workout-round-label')).toHaveCSS('clip-path', 'inset(50%)');
+  const track = page.locator('#workoutRing .workout-ring-track');
+  const fill = page.locator('#ringFill');
+  await expect(track).toHaveCSS('stroke-width', '11px');
+  await expect(fill).toHaveCSS('stroke-linecap', 'round');
 });
 
 test('short narrow Android layout keeps the workout controls in view', async ({ page }) => {
@@ -55,7 +74,8 @@ test('motion ring anticipates phase changes and controls use their action colors
   }
   await expect(wave).toHaveCSS('animation-name','liquid-flow');
   expect(await ring.locator('.workout-progress-head').count()).toBe(0);
-  expect(await ring.evaluate(el=>getComputedStyle(el,'::before').backgroundImage.includes('conic-gradient('))).toBe(true);
+  expect(await ring.evaluate(el=>getComputedStyle(el,'::before').content)).toBe('none');
+  await expect(ring.locator('.workout-ring-fill')).toHaveCount(1);
 
   await page.locator('#workoutSkip').click();
   expect(dialogs).toEqual([]);
@@ -85,7 +105,7 @@ test('motion ring anticipates phase changes and controls use their action colors
   await page.clock.fastForward(5_000);
   await expect(ring).toHaveAttribute('data-imminent','true');
   expect(await ring.evaluate(el=>getComputedStyle(el).animationName)).toBe('handoff-pulse');
-  expect(await ring.evaluate(el=>getComputedStyle(el).animationDuration)).toBe('1.05s');
+  expect(await ring.evaluate(el=>getComputedStyle(el).animationDuration)).toBe('1.15s');
   const blend=await ring.evaluate(el=>el.style.getPropertyValue('--phase-color'));
   expect(blend).not.toBe('rgb(244, 116, 130)');
   expect(blend).not.toBe('rgb(88, 214, 161)');
@@ -115,7 +135,7 @@ test('motion ring anticipates phase changes and controls use their action colors
   await page.locator('#themeToggle').click();
   await page.locator('#nav-dashboard').click();
   await startWorkout(page);
-  await expect(page.locator('#currentInterval')).toHaveCSS('color','rgb(44, 107, 81)');
+  await expect(page.locator('#currentInterval')).toHaveCSS('color','rgb(23, 121, 86)');
   await page.screenshot({path:'test-results/workout-motion-light.png',fullPage:true});
   expect(errors).toEqual([]);
 });

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'scirun5k-v0-48';
+const CACHE_NAME = 'scirun5k-v0-49';
 const ASSETS = [
   './',
   './index.html',
@@ -15,6 +15,8 @@ const ASSETS = [
   './experience.css',
   './theme-graphite.css',
   './palette-options.css',
+  './concept-screens.css',
+  './concept-workout.css',
   './fonts/Barlow-Regular.ttf',
   './fonts/Barlow-SemiBold.ttf',
   './fonts/Barlow-Bold.ttf',
