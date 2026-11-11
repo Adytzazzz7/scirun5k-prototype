@@ -18,6 +18,33 @@ test('workout follows the approved compact Aurora layout with real timer values'
   expect(order).toEqual([...order].sort((a, b) => a - b));
 });
 
+test('SVG ring and liquid visibly fill as the real interval elapses', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await createProfile(page);
+  await startWorkout(page);
+  await page.locator('#workoutSkip').click();
+  await page.evaluate(() => {
+    const duration = currentTimer.segments[currentTimer.index].seconds;
+    currentTimer.segmentEnd = Date.now() + duration * .4 * 1000;
+    updateWorkoutPage();
+  });
+  await page.waitForTimeout(700);
+  const progress = await page.locator('#workoutRing').evaluate(ring => {
+    const arc = ring.querySelector('#ringFill');
+    const liquid = ring.querySelector('.liquid-wave-front');
+    const core = ring.querySelector('.workout-liquid');
+    return {
+      dash: parseFloat(getComputedStyle(arc).strokeDasharray),
+      liquid: liquid.getBoundingClientRect().height / core.getBoundingClientRect().height,
+      circumference: Math.PI * 216,
+    };
+  });
+  expect(progress.dash / progress.circumference).toBeGreaterThan(.55);
+  expect(progress.liquid).toBeGreaterThan(.55);
+  await page.evaluate(() => document.getElementById('toast')?.classList.add('hidden'));
+  await page.screenshot({ path: 'test-results/concept-workout-filled.png', fullPage: true, animations: 'disabled' });
+});
+
 test('mobile workout gives phase, timer, speed and next duration a clear order', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await createProfile(page);
