@@ -35,7 +35,9 @@ android {
     buildTypes {
         release {
             minifyEnabled false
-            signingConfig signingConfigs.personalRelease
+            if (personalSigningFile.exists()) {
+                signingConfig signingConfigs.personalRelease
+            }
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
