@@ -1,7 +1,13 @@
 const { expect, test } = require('@playwright/test');
 const { createProfile, startWorkout, submitWorkoutFeedback } = require('./helpers.cjs');
 
+async function openDataBackups(page) {
+  const section = page.locator('#account .concept-account-detail').nth(2);
+  if ((await section.getAttribute('open')) === null) await section.locator('summary').click();
+}
+
 async function selectBackup(page, contents, name = 'backup.json') {
+  await openDataBackups(page);
   const fileChooserPromise = page.waitForEvent('filechooser');
   await page.locator('#importBackup').click();
   const fileChooser = await fileChooserPromise;
@@ -157,6 +163,7 @@ test('restores the actual exported profile and history after reset', async ({ pa
 
   await page.locator('#nav-account').click();
   await expect(page.locator('#account')).toHaveClass(/active/);
+  await openDataBackups(page);
   await page.evaluate(() => {
     const createObjectURL = URL.createObjectURL.bind(URL);
     URL.createObjectURL = blob => {

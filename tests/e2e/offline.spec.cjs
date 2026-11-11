@@ -15,7 +15,7 @@ test('restores a paused treadmill workout from the service worker cache while of
   }, { timeout: 15_000 });
   await startWorkout(page);
   await page.locator('#workoutPause').click();
-  await expect(page.locator('#workoutPause')).toContainText('Continuă');
+  await expect(page.locator('#workoutPause')).toContainText('Reia');
   const savedTimer = await page.evaluate(() => JSON.parse(localStorage.getItem('scirun.activeTimer')));
   expect(savedTimer.paused).toBe(true);
 
@@ -23,7 +23,7 @@ test('restores a paused treadmill workout from the service worker cache while of
   await expect.poll(() => page.evaluate(() => navigator.onLine)).toBe(false);
   await page.reload();
   await expect(page.locator('#workout')).toHaveClass(/active/);
-  await expect(page.locator('#workoutPause')).toContainText('Continuă');
+  await expect(page.locator('#workoutPause')).toContainText('Reia');
   const restored = await page.evaluate(() => ({
     offline: !navigator.onLine,
     controlled: Boolean(navigator.serviceWorker.controller),

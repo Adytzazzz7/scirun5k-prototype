@@ -60,6 +60,7 @@ test('dashboard returns to the same running or paused timer', async ({ page }) =
 
   await page.locator('#workoutBack').click();
   await page.locator('#nav-settings').click();
+  await page.locator('#settings .concept-language-row summary').click();
   await page.locator('#lang-en').click();
   await page.locator('#nav-dashboard').click();
   await expect(action).toContainText('Return to workout');
@@ -92,6 +93,7 @@ test('achievement opens history and cancelling reset keeps saved data', async ({
   expect(await savedState(page)).toEqual(before);
 
   await page.locator('#nav-account').click();
+  await page.locator('#account .concept-account-detail').nth(2).locator('summary').click();
   await page.locator('#resetApp').click();
   expect(dialogs).toHaveLength(1);
   expect(dialogs[0]).toContain('vor fi șterse');

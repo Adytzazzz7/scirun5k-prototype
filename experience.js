@@ -61,6 +61,7 @@
     $('sessionsPerWeek').value = String(profile?.sessionsPerWeek || Math.min(3, profile?.trainingDays?.length || 3));
     const selectedDays = profile?.trainingDays || [1, 3, 5];
     document.querySelectorAll('#dayChoices input').forEach(c => c.checked = selectedDays.includes(Number(c.value)));
+    updateDayChoices('#dayChoices', 'sessionsPerWeek', 'setupDayHint');
     $('safetyStop').classList.add('hidden');
     $('onboardError').textContent = '';
     $('scheduleError').textContent = '';
@@ -81,6 +82,7 @@
     const remaining = currentTimer.paused ? currentTimer.remaining : Math.max(0, (currentTimer.segmentEnd - Date.now()) / 1000);
     const percent = Math.min(100, Math.max(0, (segment.seconds - remaining) / segment.seconds * 100));
     const visual = workoutVisualState(segment, currentTimer.segments[currentTimer.index + 1], remaining, currentTimer.paused);
+    preview.style.setProperty('--phase-color', 'rgb(' + visual.rgb.join(', ') + ')');
     const dial = $('dashboardTimerDial');
     dial.style.setProperty('--timer-progress', percent + '%');
     dial.style.setProperty('--phase-color', 'rgb(' + visual.rgb.join(', ') + ')');
@@ -106,6 +108,7 @@
   }
 
   function showExperienceView(id) {
+    if (id === 'account') document.querySelector('#account .concept-program-card').open = true;
     if (id === 'workout' && !document.body.classList.contains('workout-active')) {
       workoutVisibleSince = Date.now();
     }
@@ -114,13 +117,54 @@
     document.body.classList.toggle('workout-active', id === 'workout');
     document.body.classList.toggle('setup-active', id === 'onboarding');
     if (id === 'dashboard') updateDashboardAction();
-    if (id !== 'workout') window.scrollTo({ top: 0, behavior: 'auto' });
+    if (id !== 'workout') {
+      delete document.documentElement.dataset.workoutPhase;
+      window.scrollTo({ top: 0, behavior: 'auto' });
+    }
     manageWakeLock();
   }
   showView = showExperienceView;
 
   function chosenExperienceDays(selector) {
     return [...document.querySelectorAll(selector + ' input:checked')].map(c => Number(c.value)).sort((a, b) => a - b);
+  }
+
+  function spreadDays(days, count) {
+    const valid = [...new Set(Array.isArray(days) ? days.map(Number).filter(day => Number.isInteger(day) && day >= 0 && day <= 6) : [])].sort((a, b) => a - b);
+    if (valid.length <= count) return valid;
+    let best = valid.slice(0, count), bestScore = Infinity;
+    function choose(start, picked) {
+      if (picked.length === count) {
+        const gaps = picked.map((day, i) => ((picked[(i + 1) % picked.length] - day + 7) % 7) || 7);
+        const score = gaps.reduce((sum, gap) => sum + Math.pow(gap - 7 / count, 2), 0);
+        if (score < bestScore) { bestScore = score; best = [...picked]; }
+        return;
+      }
+      for (let i = start; i <= valid.length - (count - picked.length); i++) choose(i + 1, [...picked, valid[i]]);
+    }
+    choose(0, []);
+    return best;
+  }
+
+  function fixedTrainingDays(days, count) {
+    const selected = spreadDays(days, count);
+    for (const day of [1, 3, 5, 0, 2, 4, 6]) {
+      if (selected.length === count) break;
+      if (!selected.includes(day)) selected.push(day);
+    }
+    return selected.sort((a, b) => a - b);
+  }
+
+  function updateDayChoices(selector, frequencyId, hintId) {
+    const count = Number($(frequencyId).value);
+    const chosen = chosenExperienceDays(selector);
+    if (chosen.length > count) {
+      const retained = new Set(spreadDays(chosen, count));
+      document.querySelectorAll(selector + ' input').forEach(input => { input.checked = retained.has(Number(input.value)); });
+    }
+    const full = chosenExperienceDays(selector).length >= count;
+    document.querySelectorAll(selector + ' input').forEach(input => { input.disabled = !input.checked && full; });
+    $(hintId).textContent = txt('Alege exact ' + count + ' zile pentru cele ' + count + ' sesiuni.', 'Choose exactly ' + count + ' days for your ' + count + ' workouts.');
   }
 
   function continueSetup() {
@@ -149,8 +193,8 @@
     if ($('safetyAnswer').value !== 'no') { $('setupBack').click(); continueSetup(); return false; }
     const frequency = Number($('sessionsPerWeek').value);
     const days = chosenExperienceDays('#dayChoices');
-    if (![2, 3, 4].includes(frequency) || days.length < frequency) {
-      $('scheduleError').textContent = txt('Alege cel puțin ' + frequency + ' zile disponibile.', 'Choose at least ' + frequency + ' available days.');
+    if (![2, 3, 4].includes(frequency) || days.length !== frequency) {
+      $('scheduleError').textContent = txt('Alege exact ' + frequency + ' zile disponibile.', 'Choose exactly ' + frequency + ' available days.');
       return false;
     }
     const runStatus = $('runStatus').value;
@@ -188,21 +232,9 @@
   function availableTrainingDays() {
     const p = state.profile;
     if (!p) return [1, 3, 5];
-    const days = [...new Set(Array.isArray(p.trainingDays) ? p.trainingDays : [1, 3, 5])].sort((a, b) => a - b);
+    const days = Array.isArray(p.trainingDays) ? p.trainingDays : [1, 3, 5];
     const count = Math.max(2, Math.min(4, Number(p.sessionsPerWeek) || Math.min(3, days.length)));
-    if (days.length <= count) return days;
-    let best = days.slice(0, count), bestScore = Infinity;
-    function choose(start, picked) {
-      if (picked.length === count) {
-        const gaps = picked.map((day, i) => ((picked[(i + 1) % picked.length] - day + 7) % 7) || 7);
-        const score = gaps.reduce((sum, gap) => sum + Math.pow(gap - 7 / count, 2), 0);
-        if (score < bestScore) { bestScore = score; best = [...picked]; }
-        return;
-      }
-      for (let i = start; i <= days.length - (count - picked.length); i++) choose(i + 1, [...picked, days[i]]);
-    }
-    choose(0, []);
-    return best;
+    return fixedTrainingDays(days, count);
   }
   recommendedDays = availableTrainingDays;
 
@@ -277,6 +309,10 @@
   function kmText(km) {
     return (Math.round(km * 100) / 100).toLocaleString(lang === 'ro' ? 'ro-RO' : 'en-GB', { minimumFractionDigits: km % 1 ? 1 : 0, maximumFractionDigits: 2 }) + ' km';
   }
+  function conceptDuration(seconds) {
+    const rounded = Math.max(0, Math.round(Number(seconds) || 0));
+    return rounded % 60 === 0 ? Math.round(rounded / 60) + ' min' : formatSeconds(rounded);
+  }
   function dateInWords(date) {
     const options = { day: 'numeric', month: 'short' };
     return dateLabel(date, options);
@@ -284,52 +320,28 @@
 
   function drawDistanceChart() {
     const target = $('distanceChart');
-    const sessions = state.history.filter(s => sessionDistance(s) !== null).slice(-6);
+    const recorded = state.history.filter(s => sessionDistance(s) !== null);
+    const sessions = recorded.slice(-6);
     if (sessions.length < 2) {
       target.innerHTML = '<div class="chart-empty">' + txt('Graficul apare după două sesiuni cu distanță raportată.', 'The chart appears after two sessions with a reported distance.') + '</div>';
       return;
     }
     const max = Math.max(0.1, ...sessions.map(sessionDistance));
-    target.innerHTML = '<div class="distance-bars" role="img" aria-label="' + txt('Distanțe reale raportate pe sesiune', 'Actual distance reported per session') + '">' + sessions.map(s => {
+    const values = sessions.map(s => dateLabel(s.completedAt || s.date, { day: 'numeric', month: 'short' }) + ': ' + kmText(sessionDistance(s))).join('; ');
+    target.innerHTML = '<div class="distance-bars" role="img" aria-label="' + txt('Distanțe reale raportate pe sesiune: ', 'Actual distance reported per workout: ') + values + '">' + sessions.map(s => {
       const value = sessionDistance(s);
       const height = Math.max(10, Math.round(value / max * 100));
-      return '<div class="distance-column"><strong>' + kmText(value) + '</strong><div class="bar-track"><i style="height:' + height + '%"></i></div><small>' + dateLabel(s.completedAt || s.date, { day: 'numeric', month: 'short' }) + '</small></div>';
-    }).join('') + '</div>';
-  }
-
-  function renderRecentSessions() {
-    const target = $('recentSessions');
-    const recent = [...state.history].sort((a, b) => String(b.completedAt || b.date).localeCompare(String(a.completedAt || a.date))).slice(0, 2);
-    target.closest('.recent-card').classList.toggle('hidden', recent.length === 0);
-    if (!recent.length) {
-      target.innerHTML = '';
-      return;
-    }
-    target.innerHTML = recent.map(s => '<div class="recent-session"><div><strong>' + dateLabel(s.completedAt || s.date, { day: 'numeric', month: 'short', year: 'numeric' }) + '</strong><span>' + (s.status === 'done' ? txt('COMPLETĂ', 'COMPLETE') : txt('PARȚIALĂ', 'PARTIAL')) + '</span><small>' + (sessionDistance(s) === null ? txt('Distanță necompletată', 'No distance entered') : kmText(sessionDistance(s))) + ' · ' + effortNames[s.effort || 'moderate'] + '</small></div><b>' + (s.effort ? '✓' : '') + '</b></div>').join('');
+      return '<div class="distance-column" aria-hidden="true"><i style="--bar-h:' + height + '%"></i></div>';
+    }).join('') + '</div><div class="concept-distance-labels"><span>' + txt('Sesiunea ', 'Workout ') + (recorded.length - sessions.length + 1) + '</span><span>' + txt('Sesiunea ', 'Workout ') + recorded.length + '</span></div>';
   }
 
   function renderWeeklyView() {
     const target = $('weeklyView');
-    const start = localDay(new Date());
-    const rows = [];
-    let planned = 0;
-    for (let i = 0; i < 7; i++) {
-      const d = new Date(start);
-      d.setDate(start.getDate() + i);
-      const key = dateKey(d);
-      const log = [...state.history].reverse().find(s => s.date === key);
-      const scheduled = availableTrainingDays().includes(d.getDay());
-      const unavailable = isUnavailable(d);
-      if (scheduled && !unavailable) planned++;
-      const status = unavailable ? txt('Indisponibilă', 'Unavailable')
-        : log ? (log.status === 'done' ? txt('Completă', 'Complete') : txt('Parțială', 'Partial'))
-        : scheduled ? txt('Programată', 'Scheduled') : txt('Liber', 'Free');
-      rows.push('<div class="week-day ' + (log?.status === 'done' ? 'is-done' : unavailable ? 'is-off' : scheduled ? 'is-planned' : '') + '"><span>' + weekdayName(d.getDay(), true) + '</span><strong>' + dateLabel(d, { day: 'numeric' }) + '</strong><small>' + status + '</small></div>');
-    }
-    const doneThisWeek = state.history.filter(s => s.status === 'done' && s.completedAt
-      && new Date(s.completedAt) >= start && new Date(s.completedAt) < new Date(start.getTime() + 7 * 86400000)).length;
-    $('weekNote').textContent = txt(doneThisWeek + ' / ' + planned + ' sesiuni planificate în următoarele 7 zile.', doneThisWeek + ' / ' + planned + ' workouts scheduled over the next 7 days.');
-    target.innerHTML = '<div class="week-days">' + rows.join('') + '</div>';
+    const dates = experiencePlanDates(5);
+    $('weekNote').textContent = txt('Următoarele 5 antrenamente planificate.', 'Your next 5 scheduled workouts.');
+    target.innerHTML = '<div class="week-days" role="list">' + dates.map(d =>
+      '<div class="week-day is-planned" role="listitem" aria-label="' + txt('Antrenament pe ', 'Workout on ') + dateLabel(d, { day: 'numeric', month: 'long', year: 'numeric' }) + '"><span>' + weekdayName(d.getDay(), true) + '</span><strong>' + dateLabel(d, { day: 'numeric' }) + '</strong><small>' + dateLabel(d, { month: 'short' }) + '</small></div>'
+    ).join('') + '</div>';
   }
 
   function renderDashboard() {
@@ -345,20 +357,22 @@
     $('goalDateNote').textContent = txt('Orientativ · se actualizează după feedback', 'Estimated · updates after feedback');
     $('nextWorkoutTitle').textContent = stageData.name[lang];
     $('nextWorkoutDesc').textContent = stageData.desc[lang];
-    $('nextWeekTag').textContent = txt('Săptămâna ' + weeksOut, 'Week ' + weeksOut);
+    const sessionNumber = state.history.filter(item => Number(item.week) === weeksOut).length + 1;
+    $('nextWeekTag').textContent = txt('Săptămâna ' + weeksOut + ' · Sesiunea ' + sessionNumber, 'Week ' + weeksOut + ' · Workout ' + sessionNumber);
     const segments = buildSegments(state.level, state.reduceNext ? 0.8 : 1);
-    $('workoutDuration').textContent = formatSeconds(segments.reduce((sum, item) => sum + item.seconds, 0));
-    $('suggestedSpeed').textContent = speedFor('run') ? speedFor('run').toFixed(1) + ' km/h' : txt('La prima sesiune', 'First workout');
-    $('longestRunPlan').textContent = formatSeconds(segments.filter(item => item.type === 'run').reduce((sum, item) => sum + item.seconds, 0));
+    $('workoutDuration').textContent = conceptDuration(segments.reduce((sum, item) => sum + item.seconds, 0));
+    const suggestedRunSpeed = speedFor('run');
+    $('suggestedSpeed').textContent = suggestedRunSpeed
+      ? suggestedRunSpeed.toLocaleString(lang === 'ro' ? 'ro-RO' : 'en-GB', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' km/h'
+      : txt('La prima sesiune', 'First workout');
+    $('longestRunPlan').textContent = conceptDuration(segments.filter(item => item.type === 'run').reduce((sum, item) => sum + item.seconds, 0));
     const chipClasses = { warmup: 'warmup', run: 'running', walk: 'walking', cooldown: 'cooldown' };
     const chipLabels = { warmup: txt('ÎNCĂLZIRE', 'WARM-UP'), run: txt('ALERGARE', 'RUN'), walk: txt('MERS', 'WALK'), cooldown: txt('REVENIRE', 'COOL-DOWN') };
     $('phaseChips').innerHTML = segments.map(segment => '<span class="phase-chip ' + chipClasses[segment.type] + '">● &nbsp; ' + formatSeconds(segment.seconds) + ' ' + chipLabels[segment.type] + '</span>').join('');
     $('planReason').textContent = state.lastPlanReason || txt('Ritmul și durata se adaptează după efortul raportat și distanța reală.', 'Pace and duration adapt to reported effort and actual distance.');
-    $('homeRunSpeed').textContent = speedFor('run') ? speedFor('run').toFixed(1) + ' km/h' : '—';
     $('totalDistance').textContent = kmText(totalRealDistance());
     renderWeeklyView();
     drawDistanceChart();
-    renderRecentSessions();
     updateGoalCelebration();
   }
 
@@ -369,23 +383,22 @@
     $('historyLongest').textContent = longestContinuousMinutes() ? longestContinuousMinutes() + ' ' + txt('min', 'min') : '—';
     const target = $('historyList');
     const entries = [...state.history].sort((a, b) => String(b.completedAt || b.date).localeCompare(String(a.completedAt || a.date)));
+    const months = new Set(entries.map(item => dateLabel(item.completedAt || item.date, { month: 'long', year: 'numeric' })));
+    const latestMonth = entries.length ? dateLabel(entries[0].completedAt || entries[0].date, { month: 'long', year: 'numeric' }) : '';
+    $('historyMonth').textContent = months.size > 1 ? txt('Toate lunile', 'All months')
+      : latestMonth ? latestMonth.charAt(0).toLocaleUpperCase(lang === 'ro' ? 'ro-RO' : 'en-GB') + latestMonth.slice(1) : '';
     if (!entries.length) {
       target.innerHTML = '<div class="empty history-empty">' + txt('Nicio sesiune salvată încă.', 'No saved workouts yet.') + '</div>';
       return;
     }
-    target.innerHTML = entries.map(s => '<article class="history-entry"><div class="history-entry-head"><strong>' + dateLabel(s.completedAt || s.date, { day: 'numeric', month: 'short', year: 'numeric' }) + '</strong><span class="status ' + s.status + '">' + (s.status === 'done' ? txt('Completă', 'Complete') : txt('Parțială', 'Partial')) + '</span></div><div class="history-entry-data"><span>' + (sessionDistance(s) === null ? txt('Distanță necompletată', 'Distance not entered') : kmText(sessionDistance(s))) + '</span><span>' + formatSeconds(s.elapsed || 0) + '</span><span>' + effortNames[s.effort || 'moderate'] + '</span></div></article>').join('');
-  }
-
-  const palettes = ['standard', 'energetic'];
-  function applyPalette(palette, persist = true) {
-    if (!palettes.includes(palette)) return false;
-    if (persist && !storageSet('scirun.palette', palette)) return false;
-    document.documentElement.dataset.palette = palette;
-    document.querySelectorAll('[data-palette-choice]').forEach(button => {
-      button.setAttribute('aria-pressed', String(button.dataset.paletteChoice === palette));
-    });
-    applyTheme(document.documentElement.dataset.theme || 'dark', false);
-    return true;
+    target.innerHTML = entries.map(s => {
+      const when = s.completedAt || s.date;
+      const year = new Date(when).getFullYear();
+      const yearLabel = Number.isFinite(year) && year !== new Date().getFullYear() ? '<small class="history-year">' + year + '</small>' : '';
+      const stageName = STAGES[s.level]?.name?.[lang] || txt('Antrenament', 'Workout');
+      const distance = sessionDistance(s) === null ? txt('Distanță necompletată', 'Distance not entered') : kmText(sessionDistance(s)) + txt(' raportat', ' reported');
+      return '<details class="history-entry"><summary class="history-entry-summary"><span class="history-entry-date"><strong>' + dateLabel(when, { day: '2-digit' }) + '</strong><small>' + dateLabel(when, { month: 'short' }) + '</small>' + yearLabel + '</span><span class="history-entry-main"><strong>' + stageName + '</strong><span>' + conceptDuration(s.elapsed || 0) + ' · ' + distance + '</span></span><span class="status ' + s.status + '">' + (s.status === 'done' ? txt('Completă', 'Complete') : txt('Parțială', 'Partial')) + '</span></summary><div class="concept-history-extra"><span>' + txt('Efort raportat: ', 'Reported effort: ') + effortNames[s.effort || 'moderate'] + '</span><span>' + dateLabel(when, { day: 'numeric', month: 'long', year: 'numeric' }) + '</span></div></details>';
+    }).join('');
   }
 
   function applyHighContrast(enabled, persist = true) {
@@ -398,10 +411,13 @@
 
   function renderSettings() {
     if (!state.profile) return;
-    applyPalette(document.documentElement.dataset.palette || 'standard', false);
     renderPreferenceToggle('contrastToggle', highContrastEnabled, txt('Contrast ridicat', 'High contrast'));
+    $('languageSummary').textContent = txt('Română', 'English');
+    const frequency = Number(state.profile.sessionsPerWeek) || 3;
+    $('conceptProgramSummary').textContent = txt(frequency + ' sesiuni pe săptămână. Schimbările viitoare păstrează istoricul.', frequency + ' workouts per week. Future changes keep your history.');
     $('settingFrequency').value = String(state.profile.sessionsPerWeek || 3);
     document.querySelectorAll('#scheduleDays input').forEach(c => c.checked = (state.profile.trainingDays || []).includes(Number(c.value)));
+    updateDayChoices('#scheduleDays', 'settingFrequency', 'scheduleDayHint');
     renderPreferenceToggle('soundPreference', soundEnabled, txt('Semnale sonore', 'Sound cues'));
     const vibrationPreference = $('vibrationPreference');
     if (vibrationPreference) {
@@ -434,7 +450,7 @@
     }
     state.blackoutDates = Array.isArray(state.blackoutDates) ? state.blackoutDates : [];
     state.profile.sessionsPerWeek = Math.max(2, Math.min(4, Number(state.profile.sessionsPerWeek) || Math.min(3, state.profile.trainingDays?.length || 3)));
-    if (!Array.isArray(state.profile.trainingDays) || state.profile.trainingDays.length < state.profile.sessionsPerWeek) state.profile.trainingDays = [1, 3, 5];
+    state.profile.trainingDays = fixedTrainingDays(state.profile.trainingDays, state.profile.sessionsPerWeek);
     renderDashboard();
     renderHistory();
     renderSettings();
@@ -446,8 +462,8 @@
     const frequency = Number($('settingFrequency').value);
     const days = chosenExperienceDays('#scheduleDays');
     const msg = $('scheduleSaveMessage');
-    if (![2, 3, 4].includes(frequency) || days.length < frequency) {
-      msg.textContent = txt('Alege cel puțin ' + frequency + ' zile disponibile.', 'Choose at least ' + frequency + ' available days.');
+    if (![2, 3, 4].includes(frequency) || days.length !== frequency) {
+      msg.textContent = txt('Alege exact ' + frequency + ' zile disponibile.', 'Choose exactly ' + frequency + ' available days.');
       msg.classList.add('form-error');
       return;
     }
@@ -844,7 +860,10 @@
     $('restoreSetupPreImport').onclick = restorePreImportBackup;
     $('setupContinue').onclick = continueSetup;
     $('setupBack').onclick = () => { $('setupStepTwo').classList.add('hidden'); $('setupStepOne').classList.remove('hidden'); experienceStrings(); };
-    $('setupFrequency')?.addEventListener('change', experienceStrings);
+    $('sessionsPerWeek').addEventListener('change', () => updateDayChoices('#dayChoices', 'sessionsPerWeek', 'setupDayHint'));
+    $('settingFrequency').addEventListener('change', () => updateDayChoices('#scheduleDays', 'settingFrequency', 'scheduleDayHint'));
+    document.querySelectorAll('#dayChoices input').forEach(input => input.addEventListener('change', () => updateDayChoices('#dayChoices', 'sessionsPerWeek', 'setupDayHint')));
+    document.querySelectorAll('#scheduleDays input').forEach(input => input.addEventListener('change', () => updateDayChoices('#scheduleDays', 'settingFrequency', 'scheduleDayHint')));
     $('saveSchedule').onclick = saveScheduleSettings;
     $('addUnavailable').onclick = addUnavailableRange;
     $('clearUnavailable').onclick = () => { const previous = state.blackoutDates, previousNext = state.nextSessionDate; state.blackoutDates = []; state.nextSessionDate = dateKey(experienceNextDate()); if (!saveState()) { state.blackoutDates = previous; state.nextSessionDate = previousNext; return; } renderAll(); };
@@ -858,9 +877,6 @@
     $('contrastToggle').onclick = () => {
       if (applyHighContrast(!highContrastEnabled)) preferenceTapFeedback();
     };
-    document.querySelectorAll('[data-palette-choice]').forEach(button => button.addEventListener('click', () => {
-      if (applyPalette(button.dataset.paletteChoice)) preferenceTapFeedback();
-    }));
     const vibrationPreference = $('vibrationPreference');
     if (vibrationPreference) vibrationPreference.onclick = () => {
       const next = !vibrationEnabled;
@@ -906,15 +922,13 @@
     if (state.profile) {
       if (state.profile.safetyAnswer !== 'no') state.profile.safetyAnswer = '';
       if (!state.profile.sessionsPerWeek) state.profile.sessionsPerWeek = Math.min(3, state.profile.trainingDays?.length || 3);
-      if (!Array.isArray(state.profile.trainingDays) || state.profile.trainingDays.length < state.profile.sessionsPerWeek) state.profile.trainingDays = [1, 3, 5];
+      state.profile.trainingDays = fixedTrainingDays(state.profile.trainingDays, state.profile.sessionsPerWeek);
       if (state.profile.runSpeed == null) state.profile.runSpeed = null;
       if (state.profile.walkSpeed == null) state.profile.walkSpeed = null;
       if (typeof state.profile.firstSessionFeedbackDone !== 'boolean') state.profile.firstSessionFeedbackDone = false;
       saveState();
     }
-    const savedPalette = storageGet('scirun.palette');
-    applyPalette(palettes.includes(savedPalette) ? savedPalette : 'standard', false);
-    if (savedPalette && !palettes.includes(savedPalette)) storageSet('scirun.palette', 'standard');
+    document.documentElement.dataset.palette = 'standard';
     const savedTheme = storageGet('scirun.theme');
     applyTheme(savedTheme || 'dark', !savedTheme);
     setupExperienceForm(state.profile);

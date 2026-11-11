@@ -1,0 +1,360 @@
+/* The real timer keeps its state and data; this layer matches the approved mobile concept. */
+:root[data-palette="standard"] { --phase-cooldown-rgb:111,169,255; --phase-cooldown-ink:#286bab; }
+html[data-palette="standard"][data-theme="dark"][data-workout-phase="run"] body.workout-active { background:radial-gradient(circle at 50% 33%,rgba(244,116,130,.26),transparent 52%),#4a1924; }
+html[data-palette="standard"][data-theme="dark"][data-workout-phase="walk"] body.workout-active { background:radial-gradient(circle at 50% 33%,rgba(88,214,161,.2),transparent 52%),#123f2f; }
+html[data-palette="standard"][data-theme="dark"][data-workout-phase="warmup"] body.workout-active,
+html[data-palette="standard"][data-theme="dark"][data-workout-phase="cooldown"] body.workout-active { background:radial-gradient(circle at 50% 33%,rgba(111,169,255,.24),transparent 52%),#14395b; }
+html[data-palette="standard"][data-theme="light"][data-workout-phase="run"] body.workout-active { background:radial-gradient(circle at 50% 33%,rgba(244,116,130,.28),transparent 52%),#ffe0e5; }
+html[data-palette="standard"][data-theme="light"][data-workout-phase="walk"] body.workout-active { background:radial-gradient(circle at 50% 33%,rgba(88,214,161,.28),transparent 52%),#dff8e9; }
+html[data-palette="standard"][data-theme="light"][data-workout-phase="warmup"] body.workout-active,
+html[data-palette="standard"][data-theme="light"][data-workout-phase="cooldown"] body.workout-active { background:radial-gradient(circle at 50% 33%,rgba(111,169,255,.25),transparent 52%),#deebff; }
+body.workout-active .workout-timer-page {
+  --workout-ink:var(--concept-ink,#f4fffd);
+  --workout-muted:var(--concept-muted,#b8cfcb);
+  --workout-glass:var(--concept-glass,rgba(19,50,57,.88));
+  --workout-line:var(--concept-line,rgba(193,235,227,.19));
+  --workout-track:var(--concept-track,rgba(214,249,241,.15));
+  display:block;
+  width:min(100%,390px);
+  min-height:100svh;
+  padding:max(14px,env(safe-area-inset-top)) 18px max(19px,env(safe-area-inset-bottom));
+  color:var(--workout-ink);
+}
+body.workout-active .workout-timer-page .workout-top {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+}
+body.workout-active .workout-timer-page .workout-back {
+  min-height:43px;
+  border:1px solid var(--workout-line);
+  border-radius:11px;
+  padding:6px 12px;
+  background:var(--workout-glass);
+  color:var(--workout-ink);
+  box-shadow:none;
+  font-size:14px;
+  font-weight:700;
+  white-space:nowrap;
+}
+body.workout-active .workout-timer-page .workout-session-heading {
+  grid-column:auto;
+  text-align:right;
+}
+body.workout-active .workout-timer-page .workout-session-heading h1 {
+  margin:0;
+  color:var(--workout-muted);
+  font-size:13px;
+  font-weight:700;
+  line-height:1.2;
+  letter-spacing:0;
+}
+body.workout-active .workout-timer-page #timerState,
+body.workout-active .workout-timer-page .workout-visually-hidden {
+  position:absolute;
+  width:1px;
+  height:1px;
+  padding:0;
+  margin:-1px;
+  overflow:hidden;
+  clip-path:inset(50%);
+  white-space:nowrap;
+  border:0;
+}
+body.workout-active .workout-timer-page .workout-content {
+  display:block;
+  width:100%;
+  max-width:none;
+}
+body.workout-active .workout-timer-page .workout-phase {
+  display:grid;
+  justify-items:center;
+  gap:0;
+  margin:13px 0 0;
+  text-align:center;
+}
+body.workout-active .workout-timer-page .workout-phase .workout-current {
+  max-width:none;
+  color:var(--phase-color);
+  font-size:15px;
+  font-weight:800;
+  line-height:1.2;
+  letter-spacing:0;
+}
+body.workout-active .workout-timer-page .workout-phase #roundCount {
+  margin:4px 0 0;
+  color:var(--workout-muted);
+  font-size:13px;
+  font-weight:600;
+  line-height:1.2;
+}
+body.workout-active .workout-timer-page .workout-ring {
+  position:relative;
+  display:grid;
+  place-items:center;
+  width:min(246px,74vw);
+  max-width:none;
+  height:auto;
+  aspect-ratio:1;
+  margin:16px auto;
+  padding:0;
+  overflow:visible;
+  border-radius:50%;
+  background:none;
+  box-shadow:none;
+  color:var(--phase-color);
+}
+body.workout-active .workout-timer-page .workout-ring::before,
+body.workout-active .workout-timer-page .workout-ring::after { content:none; }
+body.workout-active .workout-timer-page .workout-ring-svg {
+  position:absolute;
+  inset:0;
+  z-index:2;
+  width:100%;
+  height:100%;
+  overflow:visible;
+  transform:rotate(-90deg);
+  pointer-events:none;
+}
+body.workout-active .workout-timer-page .workout-ring-track {
+  fill:none;
+  stroke:var(--workout-track);
+  stroke-width:11;
+}
+body.workout-active .workout-timer-page .workout-ring-fill {
+  fill:none;
+  stroke:currentColor;
+  stroke-width:11;
+  stroke-linecap:round;
+  filter:drop-shadow(0 0 6px currentColor);
+  transition:stroke-dasharray .5s ease,opacity .2s ease;
+}
+body.workout-active .workout-timer-page .workout-ring[data-imminent="true"] {
+  animation:handoff-pulse 1.15s ease-in-out infinite;
+}
+@keyframes handoff-pulse {
+  0%,100% { transform:scale(1); filter:drop-shadow(0 0 4px currentColor); }
+  50% { transform:scale(1.035); filter:drop-shadow(0 0 17px currentColor); }
+}
+body.workout-active .workout-timer-page .workout-ring-center {
+  position:relative;
+  z-index:1;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:5px;
+  width:calc(100% - 40px);
+  height:calc(100% - 40px);
+  border:0;
+  border-radius:50%;
+  overflow:hidden;
+  background:rgba(7,30,37,.22);
+  box-shadow:none;
+  text-align:center;
+}
+body.workout-active .workout-timer-page .workout-liquid {
+  z-index:0;
+  opacity:1;
+}
+body.workout-active .workout-timer-page .liquid-wave { opacity:.42; transition:height .6s ease; }
+body.workout-active .workout-timer-page .liquid-wave-back { opacity:.25; }
+body.workout-active .workout-timer-page .workout-remaining,
+body.workout-active .workout-timer-page .workout-time,
+body.workout-active .workout-timer-page .workout-recommended-speed {
+  position:relative;
+  z-index:1;
+  color:var(--workout-ink);
+  text-shadow:0 1px 8px rgba(0,0,0,.25);
+}
+body.workout-active .workout-timer-page .workout-remaining {
+  font-size:12px;
+  font-weight:800;
+  line-height:1.2;
+}
+body.workout-active .workout-timer-page .workout-time {
+  font-size:48px;
+  line-height:1;
+  letter-spacing:-2px;
+  font-weight:800;
+  white-space:nowrap;
+}
+body.workout-active .workout-timer-page .workout-recommended-speed {
+  max-width:85%;
+  margin:0;
+  font-size:14px;
+  line-height:1.2;
+  font-weight:700;
+}
+body.workout-active .workout-timer-page .workout-rounds { width:100%; margin:2px 0 0; }
+body.workout-active .workout-timer-page .session-progress {
+  display:grid;
+  grid-template-columns:repeat(var(--stage-count),minmax(0,1fr));
+  gap:4px;
+  width:100%;
+  padding:0;
+  height:7px;
+}
+body.workout-active .workout-timer-page .session-progress-step,
+html[data-theme="light"] body.workout-active .workout-timer-page .session-progress-step {
+  height:7px;
+  border:0;
+  border-radius:8px;
+  background:var(--stage-color);
+  opacity:1;
+  overflow:visible;
+}
+body.workout-active .workout-timer-page .session-progress-fill { display:none; }
+body.workout-active .workout-timer-page .session-progress-step[data-status="current"] {
+  box-shadow:0 0 0 2px var(--workout-ink);
+}
+body.workout-active .workout-timer-page .session-progress-legend {
+  display:flex;
+  justify-content:space-between;
+  flex-wrap:nowrap;
+  gap:6px;
+  margin:8px 0 14px;
+  color:var(--workout-muted);
+  font-size:12px;
+  font-weight:600;
+  line-height:1.2;
+}
+body.workout-active .workout-timer-page .session-progress-legend strong {
+  font-weight:600;
+  white-space:nowrap;
+}
+body.workout-active .workout-timer-page .workout-next {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  width:100%;
+  padding:12px 14px;
+  border:1px solid var(--workout-line);
+  border-radius:15px;
+  background:var(--workout-glass);
+  box-shadow:none;
+  color:var(--workout-ink);
+}
+body.workout-active .workout-timer-page .workout-next > div:first-child { display:grid; gap:3px; }
+body.workout-active .workout-timer-page .workout-next-label {
+  color:var(--workout-muted);
+  font-size:12px;
+  font-weight:700;
+  line-height:1.2;
+}
+body.workout-active .workout-timer-page .workout-next #nextInterval {
+  color:var(--workout-ink);
+  font-size:18px;
+  line-height:1.1;
+  font-weight:800;
+}
+body.workout-active .workout-timer-page .workout-total #nextDuration {
+  color:var(--workout-ink);
+  font-size:16px;
+  font-weight:800;
+  font-variant-numeric:tabular-nums;
+  white-space:nowrap;
+}
+body.workout-active .workout-timer-page .phase-countdown {
+  position:static;
+  display:block;
+  width:100%;
+  max-width:none;
+  min-height:0;
+  margin:8px 0 0;
+  padding:11px 13px;
+  transform:none;
+  border:1px solid var(--workout-line);
+  border-radius:12px;
+  background:var(--workout-glass);
+  box-shadow:none;
+  color:var(--workout-ink);
+  font-size:13px;
+  font-weight:700;
+  line-height:1.3;
+  text-align:left;
+}
+body.workout-active .workout-timer-page .phase-countdown.hidden { display:none; }
+body.workout-active .workout-timer-page .workout-controls {
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:7px;
+  width:100%;
+  max-width:none;
+  margin:15px 0 0;
+}
+body.workout-active .workout-timer-page .workout-controls .btn {
+  grid-column:auto;
+  min-height:49px;
+  padding:8px 5px;
+  border:0;
+  border-radius:12px;
+  box-shadow:none;
+  font-size:13px;
+  font-weight:800;
+  line-height:1.1;
+}
+body.workout-active .workout-timer-page #workoutPause { background:rgb(var(--phase-warmup-rgb)); color:#071e34; }
+body.workout-active .workout-timer-page #workoutSkip { background:rgb(var(--phase-walk-rgb)); color:#0b3323; }
+body.workout-active .workout-timer-page #workoutFinish { background:rgb(var(--phase-run-rgb)); color:#3d101c; }
+body.workout-active .workout-timer-page .workout-abandon {
+  grid-column:1/-1;
+  justify-self:center;
+  min-height:40px;
+  margin:10px auto 0;
+  padding:6px 8px;
+  border:0;
+  background:none;
+  color:var(--workout-muted);
+  font-size:12px;
+  font-weight:600;
+  text-decoration:underline;
+  text-underline-offset:2px;
+}
+html[data-theme="light"] body.workout-active .workout-timer-page {
+  --workout-ink:#173431;
+  --workout-muted:#45615e;
+  --workout-glass:rgba(255,255,255,.9);
+  --workout-line:rgba(23,52,49,.19);
+  --workout-track:rgba(23,52,49,.12);
+}
+html[data-theme="light"] body.workout-active .workout-timer-page .workout-ring-center {
+  background:rgba(255,255,255,.28);
+}
+html[data-theme="light"] body.workout-active .workout-timer-page .workout-ring-center > :not(.workout-liquid) {
+  text-shadow:0 1px 8px rgba(255,255,255,.55);
+}
+html[data-theme="light"][data-workout-phase="run"] body.workout-active .workout-timer-page { --workout-ink:#3a1b24; --workout-muted:#633e49; --workout-line:rgba(128,38,55,.22); --workout-track:rgba(128,38,55,.13); }
+html[data-theme="light"][data-workout-phase="walk"] body.workout-active .workout-timer-page { --workout-ink:#153c2c; --workout-muted:#3e6353; --workout-line:rgba(18,85,53,.2); --workout-track:rgba(18,85,53,.12); }
+html[data-theme="light"][data-workout-phase="warmup"] body.workout-active .workout-timer-page,
+html[data-theme="light"][data-workout-phase="cooldown"] body.workout-active .workout-timer-page { --workout-ink:#173452; --workout-muted:#496882; --workout-line:rgba(37,93,145,.2); --workout-track:rgba(37,93,145,.12); }
+html[data-theme="light"] body.workout-active .workout-timer-page .workout-phase .workout-current { color:var(--phase-ink); }
+html[data-theme="light"][data-workout-phase="run"] body.workout-active .workout-timer-page .workout-phase .workout-current,
+html[data-theme="light"][data-workout-phase="run"] body.workout-active .workout-timer-page .workout-ring { color:#ba354b; }
+html[data-theme="light"][data-workout-phase="walk"] body.workout-active .workout-timer-page .workout-phase .workout-current,
+html[data-theme="light"][data-workout-phase="walk"] body.workout-active .workout-timer-page .workout-ring { color:#177956; }
+html[data-theme="light"][data-workout-phase="warmup"] body.workout-active .workout-timer-page .workout-phase .workout-current,
+html[data-theme="light"][data-workout-phase="warmup"] body.workout-active .workout-timer-page .workout-ring,
+html[data-theme="light"][data-workout-phase="cooldown"] body.workout-active .workout-timer-page .workout-phase .workout-current,
+html[data-theme="light"][data-workout-phase="cooldown"] body.workout-active .workout-timer-page .workout-ring { color:#286bab; }
+html[data-contrast="high"] body.workout-active .workout-timer-page { --workout-line:currentColor; --workout-track:rgba(255,255,255,.4); }
+html[data-contrast="high"][data-theme="light"] body.workout-active .workout-timer-page { --workout-track:rgba(0,0,0,.32); }
+@media(max-width:355px){
+  body.workout-active .workout-timer-page { padding-right:14px; padding-left:14px; }
+  body.workout-active .workout-timer-page .workout-ring { width:218px; }
+  body.workout-active .workout-timer-page .workout-session-heading h1 { font-size:12px; }
+  body.workout-active .workout-timer-page .workout-controls .btn { font-size:12px; }
+}
+@media(max-width:480px) and (max-height:620px){
+  body.workout-active .workout-timer-page .workout-ring { width:min(180px,52vw); margin:8px auto; }
+  body.workout-active .workout-timer-page .workout-phase { margin-top:7px; }
+  body.workout-active .workout-timer-page .workout-controls { margin-top:8px; }
+  body.workout-active .workout-timer-page .session-progress-legend { margin-bottom:8px; }
+}
+@media(prefers-reduced-motion:reduce){
+  body.workout-active .workout-timer-page .workout-ring,
+  body.workout-active .workout-timer-page .liquid-surface { animation:none !important; }
+  body.workout-active .workout-timer-page .workout-ring-fill { transition:none; }
+}

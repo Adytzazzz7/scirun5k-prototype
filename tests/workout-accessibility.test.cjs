@@ -9,7 +9,11 @@ const workoutSource = fs.readFileSync(path.join(root, 'workout-view.js'), 'utf8'
 
 function workoutHarness() {
   const elements = new Map();
-  const document = { body: { id: 'body' }, activeElement: null, documentElement: {}, querySelectorAll: () => [] };
+  const bodyClasses = new Set();
+  const document = { body: { id: 'body', classList: {
+    contains: name => bodyClasses.has(name),
+    toggle(name, enabled) { if (enabled) bodyClasses.add(name); else bodyClasses.delete(name); },
+  } }, activeElement: null, documentElement: { dataset: {} }, querySelectorAll: () => [] };
   document.activeElement = document.body;
 
   function element(id, attributes = {}) {
@@ -54,6 +58,7 @@ function workoutHarness() {
         for (const attribute of match[0].matchAll(/([\w-]+)="([^"]*)"/g)) attributes[attribute[1]] = attribute[2];
         elements.set(match[1], element(match[1], attributes));
       }
+      if (elements.has('currentInterval')) elements.get('currentInterval').parentElement = element('workoutPhase');
     },
   });
   elements.set('workout', page);
@@ -71,7 +76,7 @@ function workoutHarness() {
     document,
     Date: class extends Date { static now() { return now; } },
     $: id => id === 'workout' ? page : elements.get(id) || null,
-    showView() {},
+    showView(id) { document.body.classList.toggle('workout-active', id === 'workout'); },
     nextScheduledDate: () => '2026-11-06',
     getWeekNumber: () => 1,
     formatSeconds: value => `00:${String(Math.ceil(value)).padStart(2, '0')}`,
@@ -119,10 +124,12 @@ function ancestorRoles(markup, id) {
 test('pause and skip restore focus to the equivalent control after a workout rerender', () => {
   const { context, document, get } = workoutHarness();
   context.renderWorkoutPage();
+  assert.equal(document.documentElement.dataset.workoutPhase, 'warmup');
 
   const originalPause = get('workoutPause');
   originalPause.focus();
   originalPause.onclick();
+  assert.equal(document.documentElement.dataset.workoutPhase, 'warmup', 'pause keeps the real segment color');
   assert.notEqual(get('workoutPause'), originalPause);
   assert.equal(document.activeElement, get('workoutPause'));
   assert.equal(get('workoutAnnouncement').textContent, 'Paused');
@@ -131,6 +138,7 @@ test('pause and skip restore focus to the equivalent control after a workout rer
   const originalSkip = get('workoutSkip');
   originalSkip.focus();
   originalSkip.onclick();
+  assert.equal(document.documentElement.dataset.workoutPhase, 'run');
   assert.notEqual(get('workoutSkip'), originalSkip);
   assert.equal(document.activeElement, get('workoutSkip'));
 });
@@ -159,7 +167,8 @@ test('phase and countdown announcements are outside image semantics and update o
   assert.ok(live, 'a separate live status is rendered');
   assert.equal(live.getAttribute('role'), 'status');
   assert.equal(live.getAttribute('aria-atomic'), 'true');
-  assert.ok(ancestorRoles(page.innerHTML, 'phaseCountdown').includes('img'));
+  assert.ok(!ancestorRoles(page.innerHTML, 'phaseCountdown').includes('img'));
+  assert.ok(!ancestorRoles(page.innerHTML, 'currentInterval').includes('img'));
   assert.ok(!ancestorRoles(page.innerHTML, 'workoutAnnouncement').includes('img'));
   assert.equal(get('currentInterval').getAttribute('aria-live'), null);
   assert.equal(get('phaseCountdown').getAttribute('aria-live'), null);
@@ -171,7 +180,7 @@ test('phase and countdown announcements are outside image semantics and update o
 
   timer.segmentEnd = 1_009_800;
   context.updateWorkoutPage();
-  assert.match(live.textContent, /In 10 seconds: Run/);
+  assert.match(live.textContent, /In 10 seconds: increase speed to 6.0 km\/h/);
   const warningWrites = live.textWrites;
   context.updateWorkoutPage();
   timer.segmentEnd = 1_008_800;
@@ -185,12 +194,13 @@ test('phase and countdown announcements are outside image semantics and update o
 });
 
 test('a new workout announces its first phase after the previous session reaches feedback', () => {
-  const { context, get, timer } = workoutHarness();
+  const { context, document, get, timer } = workoutHarness();
   context.renderWorkoutPage();
   assert.match(get('workoutAnnouncement').textContent, /Current interval: Warm-up/);
   context.currentTimer = null;
   context.pendingSession = { level: 0, week: 1, sessionNumber: 1, elapsed: 60, completion: 1, completedNaturally: true };
   context.renderWorkoutPage();
+  assert.equal(document.documentElement.dataset.workoutPhase, undefined, 'feedback clears the phase background');
   context.pendingSession = null;
   context.currentTimer = timer;
   context.renderWorkoutPage();

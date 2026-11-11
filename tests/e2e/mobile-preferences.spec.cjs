@@ -37,10 +37,36 @@ test('mobile preferences show their state and persist across reload and language
   await expect(sound).toHaveAttribute('aria-pressed', 'false');
   await expect(vibration).toHaveAttribute('aria-pressed', 'true');
   await expect(theme).toHaveAttribute('aria-pressed', 'false');
+  await page.locator('#settings .concept-language-row summary').click();
   await page.locator('#lang-en').click();
   await expect(sound.locator('.preference-toggle-state')).toHaveText('Off');
   await expect(vibration.locator('.preference-toggle-state')).toHaveText('On');
   await expect(theme.locator('.preference-toggle-state')).toHaveText('Off');
+});
+
+test('Aurora settings keep visual controls compact and light goal text readable', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await createProfile(page);
+  await page.locator('#nav-settings').click();
+  const visual = await page.locator('.visual-choice').first().boundingBox();
+  expect(visual.height).toBeLessThanOrEqual(82);
+  await expect(page.locator('.palette-option')).toHaveCount(0);
+  await expect(page.locator('.setting-row #vibrationHelp')).toHaveCount(1);
+  await expect(page.locator('#toast')).toHaveClass(/hidden/);
+  await page.screenshot({ path: 'test-results/premium-settings-dark.png', fullPage: true, animations: 'disabled' });
+  await page.locator('#themeToggle').click();
+  await page.locator('#nav-dashboard').click();
+  await page.screenshot({ path: 'test-results/premium-panou-light.png', fullPage: true, animations: 'disabled' });
+  const contrast = await page.locator('#goalMedalMeta').evaluate(element => {
+    element.closest('#goalCelebration').classList.remove('hidden');
+    const channels = color => color.match(/\d+/g).slice(0, 3).map(Number).map(v => {
+      const x = v / 255;
+      return x <= .04045 ? x / 12.92 : ((x + .055) / 1.055) ** 2.4;
+    });
+    const [r,g,b] = channels(getComputedStyle(element).color);
+    return 1.05 / (r * .2126 + g * .7152 + b * .0722 + .05);
+  });
+  expect(contrast).toBeGreaterThanOrEqual(4.5);
 });
 
 test('mobile timer uses a continuous liquid arc and phase-colored pulse', async ({ page }) => {
@@ -78,7 +104,7 @@ test('mobile timer uses a continuous liquid arc and phase-colored pulse', async 
     return { animationName: style.animationName, animationDuration: style.animationDuration };
   });
   expect(pulse.animationName).toBe('handoff-pulse');
-  expect(pulse.animationDuration).toBe('1.05s');
+  expect(pulse.animationDuration).toBe('1.15s');
   await page.clock.fastForward(4_900);
   await expect(ring).toHaveAttribute('data-phase', 'run');
   await expect(ring).toHaveAttribute('data-imminent', 'false');
@@ -89,8 +115,8 @@ test('mobile timer uses a continuous liquid arc and phase-colored pulse', async 
   );
   await page.clock.fastForward(untilCooldown + 400);
   await expect(ring).toHaveAttribute('data-phase', 'cooldown');
-  await expect(ring).toHaveCSS('--phase-color', 'rgb(137, 194, 238)');
-  await expect(wave).toHaveCSS('fill', 'rgb(137, 194, 238)');
+  await expect(ring).toHaveCSS('--phase-color', 'rgb(111, 169, 255)');
+  await expect(wave).toHaveCSS('fill', 'rgb(111, 169, 255)');
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await expect(wave).toHaveCSS('animation-name', 'none');
   expect(await ring.evaluate(el => getComputedStyle(el).animationName)).toBe('none');

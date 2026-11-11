@@ -20,13 +20,13 @@ test('creates a treadmill profile, restores a paused workout, and resets local d
   const pauseButton = page.locator('#workoutPause');
   await expect(pauseButton).toContainText('Pauză');
   await pauseButton.click();
-  await expect(pauseButton).toContainText('Continuă');
+  await expect(pauseButton).toContainText('Reia');
   const pausedTimer = await page.evaluate(() => JSON.parse(localStorage.getItem('scirun.activeTimer')));
   expect(pausedTimer.paused).toBe(true);
 
   await page.reload();
   await expect(page.locator('#workout')).toHaveClass(/active/);
-  await expect(page.locator('#workoutPause')).toContainText('Continuă');
+  await expect(page.locator('#workoutPause')).toContainText('Reia');
   await page.locator('#workoutPause').click();
   await expect(page.locator('#workoutPause')).toContainText('Pauză');
   const resumedTimer = await page.evaluate(() => JSON.parse(localStorage.getItem('scirun.activeTimer')));
@@ -39,6 +39,7 @@ test('creates a treadmill profile, restores a paused workout, and resets local d
   await expect(page.locator('#dashboard')).toHaveClass(/active/);
   await page.locator('#nav-account').click();
   await expect(page.locator('#account')).toHaveClass(/active/);
+  await page.locator('#account .concept-account-detail').nth(2).locator('summary').click();
   page.once('dialog', dialog => dialog.accept());
   await page.locator('#resetApp').click();
   await expect(page.locator('#onboarding')).toHaveClass(/active/);

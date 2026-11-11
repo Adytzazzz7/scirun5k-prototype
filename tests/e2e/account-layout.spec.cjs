@@ -1,8 +1,50 @@
 const { test, expect } = require('@playwright/test');
 const { createProfile } = require('./helpers.cjs');
 
-test('mobile navigation separates activity, visuals and account controls', async ({ page }) => {
+test('Program opens on Account and lists only the next five workout dates', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.clock.setFixedTime(new Date('2026-11-03T09:00:00Z'));
   await createProfile(page);
+  await page.locator('#nav-account').click();
+  const program = page.locator('#account .concept-program-card');
+  await expect(program).toHaveAttribute('open', '');
+  await expect(program.locator('#weeklyView .week-day')).toHaveCount(5);
+  await expect(program.locator('#weeklyView .week-day.is-planned')).toHaveCount(5);
+  await expect(program.locator('#conceptWeekdays')).toHaveCount(0);
+  await expect(program.locator('#weeklyView')).not.toContainText('Liber');
+  const dates = await program.locator('#weeklyView .week-day').allTextContents();
+  expect(new Set(dates).size).toBe(5);
+  await program.locator('summary').click();
+  await expect(program).not.toHaveAttribute('open', '');
+  await page.locator('#nav-dashboard').click();
+  await page.locator('#nav-account').click();
+  await expect(program).toHaveAttribute('open', '');
+});
+
+test('Visuals keeps Aurora Standard without a palette chooser or data loss', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await createProfile(page);
+  const historyBefore = await page.evaluate(() => localStorage.getItem('scirun.state'));
+  await page.evaluate(() => localStorage.setItem('scirun.palette', 'energetic'));
+  await page.reload();
+  await page.locator('#nav-settings').click();
+  await expect(page.locator('#paletteHeading, [data-palette-choice]')).toHaveCount(0);
+  await expect(page.locator('html')).toHaveAttribute('data-palette', 'standard');
+  expect(await page.evaluate(() => localStorage.getItem('scirun.palette'))).toBe('energetic');
+  expect(await page.evaluate(() => localStorage.getItem('scirun.state'))).toBe(historyBefore);
+});
+
+test('mobile navigation separates activity, visuals and account controls', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await createProfile(page);
+  await expect(page.locator('.topbar .brand')).toHaveAttribute('aria-label', 'SciRun 5K');
+  await expect(page.locator('.topbar .brand-edition')).toHaveText('5K');
+  await expect(page.locator('.topbar .concept-header-caption')).toHaveCount(0);
+  await expect(page.locator('.topbar')).not.toContainText('Programul tău');
+  for (const selector of ['#dashboard .concept-goal-detail summary', '#dashboard .concept-distance-info summary', '#dashboard .workout-preview summary']) {
+    const target = await page.locator(selector).boundingBox();
+    if (!target || target.height < 44 || target.width < 44) throw new Error(selector + ' has a small touch target: ' + JSON.stringify(target));
+  }
   expect(await page.locator('#nav button').count()).toBe(4);
   for (const [view, label] of [
     ['dashboard', 'Panou'], ['history', 'Istoric'], ['settings', 'Setări'], ['account', 'Cont'],
@@ -20,28 +62,33 @@ test('mobile navigation separates activity, visuals and account controls', async
   if (await page.locator('#workoutTypeTag').count()) throw new Error('Timed intervals badge stayed on Dashboard');
 
   await page.locator('#nav-history').click();
-  expect(await page.locator('#history #recentSessions').count()).toBe(1);
-  expect(await page.locator('#history .recent-card').isVisible()).toBe(false);
+  expect(await page.locator('#history #recentSessions').count()).toBe(0);
+  expect(await page.locator('#history .recent-card').count()).toBe(0);
   await expect(page.locator('#historyList .history-empty')).toBeVisible();
   await page.locator('#nav-settings').click();
   await expect(page.locator('.palette-settings-card')).toBeVisible();
   await expect(page.locator('.palette-settings-card h2')).toContainText('Visuals');
+  await expect(page.locator('#paletteHeading, [data-palette-choice]')).toHaveCount(0);
   const themeBox = await page.locator('#themeToggle').boundingBox();
   const contrastBox = await page.locator('#contrastToggle').boundingBox();
   if (!themeBox || !contrastBox || Math.abs(themeBox.y - contrastBox.y) > 3) throw new Error('Visual toggles are not side by side');
   if (themeBox.height < 44 || contrastBox.height < 44) throw new Error('Visual toggle touch target is too small');
   if (await page.locator('#settings #saveSchedule').count()) throw new Error('Schedule stayed in Settings');
+  const languageTarget = await page.locator('#settings .concept-language-row summary').boundingBox();
+  if (!languageTarget || languageTarget.height < 44) throw new Error('Language disclosure has a small touch target');
+  await page.locator('#settings .concept-language-row summary').click();
   await page.locator('#lang-en').click();
   await expect(page.locator('#nav-account')).toContainText('Account');
   await page.locator('#nav-account').click();
   await expect(page.locator('#account #weeklyView')).toBeVisible();
-  for (const id of ['settingFrequency', 'unavailableStart', 'editProfile', 'exportData', 'importBackup', 'resetApp']) {
+  for (const id of ['settingFrequency', 'unavailableStart', 'editProfile', 'exportData', 'importBackup', 'resetApp', 'googleBackupStatus', 'googleConnect', 'googleSave', 'googleRefresh', 'googleDisconnect', 'googleBackupList', 'googleBackupError']) {
     expect(await page.locator('#account #' + id).count()).toBe(1);
   }
-  expect(await page.locator('#weeklyView').evaluate(element => element.closest('article.card').querySelector('h2').textContent)).toBe('Schedule');
+  expect(await page.locator('#weeklyView').evaluate(element => element.closest('details.card').querySelector('.concept-program-title').textContent)).toBe('Schedule');
 });
 
 test('account schedule and unavailable dates still save without touching history', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
   await createProfile(page);
   const historyBefore = await page.evaluate(() => JSON.parse(localStorage.getItem('scirun.state')).history);
   await page.locator('#nav-account').click();
@@ -50,6 +97,7 @@ test('account schedule and unavailable dates still save without touching history
   const frequency = await page.evaluate(() => JSON.parse(localStorage.getItem('scirun.state')).profile.sessionsPerWeek);
   expect(frequency).toBe(2);
 
+  await page.locator('#account .concept-account-detail').first().locator('summary').click();
   await page.locator('#addUnavailable').click();
   await expect(page.locator('#unavailableMessage')).toContainText('Alege o perioadă validă');
   await page.locator('#unavailableStart').fill('2026-11-10');
@@ -59,4 +107,79 @@ test('account schedule and unavailable dates still save without touching history
   const state = await page.evaluate(() => JSON.parse(localStorage.getItem('scirun.state')));
   expect(state.blackoutDates.includes('2026-11-10')).toBe(true);
   expect(state.history).toEqual(historyBefore);
+});
+
+test('mobile Panou shows one speed value and Istoric lists each saved session once', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await createProfile(page);
+  const original = await page.evaluate(() => {
+    const state = JSON.parse(localStorage.getItem('scirun.state'));
+    state.profile.runSpeed = 8.5;
+    state.profile.walkSpeed = 5.5;
+    state.history = [{
+      id: 555, date: state.profile.startDate, level: state.level,
+      status: 'done', effort: 'easy', completion: 1, timerCompletion: 1,
+      elapsed: 600, week: 1, distanceKm: 2.4,
+      completedAt: state.profile.startDate + 'T12:00:00.000Z',
+    }];
+    localStorage.setItem('scirun.state', JSON.stringify(state));
+    return JSON.stringify(state.history);
+  });
+  await page.reload();
+  await expect(page.locator('#dashboard #suggestedSpeed')).toHaveText('8,5 km/h');
+  await expect(page.locator('#dashboard #homeRunSpeed')).toHaveCount(0);
+  await expect(page.locator('#dashboard #totalDistance')).toContainText('2,4 km');
+  const metricRows = await page.locator('#dashboard .workout-metrics > div').evaluateAll(nodes => nodes.map(node => Math.round(node.getBoundingClientRect().top)));
+  const summaryRows = await page.locator('#dashboard .home-stats .stat').evaluateAll(nodes => nodes.map(node => Math.round(node.getBoundingClientRect().top)));
+  expect(new Set(metricRows).size).toBe(1);
+  expect(new Set(summaryRows).size).toBe(1);
+  await expect(page.locator('#toast')).toHaveClass(/hidden/);
+  await page.screenshot({ path: 'test-results/premium-panou-dark.png', fullPage: true, animations: 'disabled' });
+  await page.locator('#nav-history').click();
+  await expect(page.locator('#historyList .history-entry')).toHaveCount(1);
+  await expect(page.locator('#history .recent-session')).toHaveCount(0);
+  const historyRows = await page.locator('#history .history-stats .stat').evaluateAll(nodes => nodes.map(node => Math.round(node.getBoundingClientRect().top)));
+  expect(new Set(historyRows).size).toBe(1);
+  await page.screenshot({ path: 'test-results/premium-history-dark.png', fullPage: true, animations: 'disabled' });
+  await page.locator('#nav-account').click();
+  await page.screenshot({ path: 'test-results/concept-account-dark.png', fullPage: true, animations: 'disabled' });
+  expect(await page.evaluate(() => JSON.stringify(JSON.parse(localStorage.getItem('scirun.state')).history))).toBe(original);
+});
+
+test('history distinguishes earlier years while the distance chart uses saved sessions', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.clock.setFixedTime(new Date('2026-11-07T12:00:00Z'));
+  await createProfile(page);
+  const original = await page.evaluate(() => {
+    const state = JSON.parse(localStorage.getItem('scirun.state'));
+    state.history = [
+      { id: 501, date: '2025-11-07', completedAt: '2025-11-07T12:00:00.000Z', level: 0, status: 'done', effort: 'easy', completion: 1, timerCompletion: 1, elapsed: 600, week: 1, distanceKm: 2.1 },
+      { id: 502, date: '2026-11-07', completedAt: '2026-11-07T12:00:00.000Z', level: 0, status: 'done', effort: 'easy', completion: 1, timerCompletion: 1, elapsed: 650, week: 1, distanceKm: 2.4 },
+    ];
+    localStorage.setItem('scirun.state', JSON.stringify(state));
+    return JSON.stringify(state.history);
+  });
+  await page.reload();
+  await expect(page.locator('#dashboard .distance-column')).toHaveCount(2);
+  await page.locator('#nav-history').click();
+  await expect(page.locator('#historyList .history-entry')).toHaveCount(2);
+  await expect(page.locator('#historyMonth')).toHaveText('Toate lunile');
+  await expect(page.locator('#historyList .history-year')).toHaveText('2025');
+  expect(await page.evaluate(() => JSON.stringify(JSON.parse(localStorage.getItem('scirun.state')).history))).toBe(original);
+});
+
+test('concept surfaces and selected navigation follow theme and contrast', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await createProfile(page);
+  await expect(page.locator('#dashboard .home-stats .stat').first()).toHaveCSS('background-color', 'rgb(18, 48, 55)');
+  await page.locator('#nav-settings').click();
+  await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(6, 25, 29)');
+  await expect(page.locator('#nav-settings')).toHaveCSS('background-color', 'rgb(86, 220, 196)');
+  await expect(page.locator('#settings .palette-settings-card')).toHaveCSS('background-color', 'rgb(18, 48, 55)');
+  await page.locator('#contrastToggle').click();
+  await expect(page.locator('#settings .palette-settings-card')).toHaveCSS('background-color', 'rgb(18, 48, 55)');
+  await page.locator('#themeToggle').click();
+  await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(241, 250, 249)');
+  await expect(page.locator('#nav-settings')).toHaveCSS('background-color', 'rgb(23, 111, 108)');
+  await expect(page.locator('#settings .palette-settings-card')).toHaveCSS('background-color', 'rgb(255, 255, 255)');
 });
