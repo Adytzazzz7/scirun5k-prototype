@@ -61,6 +61,7 @@
     $('sessionsPerWeek').value = String(profile?.sessionsPerWeek || Math.min(3, profile?.trainingDays?.length || 3));
     const selectedDays = profile?.trainingDays || [1, 3, 5];
     document.querySelectorAll('#dayChoices input').forEach(c => c.checked = selectedDays.includes(Number(c.value)));
+    updateDayChoices('#dayChoices', 'sessionsPerWeek', 'setupDayHint');
     $('safetyStop').classList.add('hidden');
     $('onboardError').textContent = '';
     $('scheduleError').textContent = '';
@@ -107,6 +108,7 @@
   }
 
   function showExperienceView(id) {
+    if (id === 'account') document.querySelector('#account .concept-program-card').open = true;
     if (id === 'workout' && !document.body.classList.contains('workout-active')) {
       workoutVisibleSince = Date.now();
     }
@@ -125,6 +127,44 @@
 
   function chosenExperienceDays(selector) {
     return [...document.querySelectorAll(selector + ' input:checked')].map(c => Number(c.value)).sort((a, b) => a - b);
+  }
+
+  function spreadDays(days, count) {
+    const valid = [...new Set(Array.isArray(days) ? days.map(Number).filter(day => Number.isInteger(day) && day >= 0 && day <= 6) : [])].sort((a, b) => a - b);
+    if (valid.length <= count) return valid;
+    let best = valid.slice(0, count), bestScore = Infinity;
+    function choose(start, picked) {
+      if (picked.length === count) {
+        const gaps = picked.map((day, i) => ((picked[(i + 1) % picked.length] - day + 7) % 7) || 7);
+        const score = gaps.reduce((sum, gap) => sum + Math.pow(gap - 7 / count, 2), 0);
+        if (score < bestScore) { bestScore = score; best = [...picked]; }
+        return;
+      }
+      for (let i = start; i <= valid.length - (count - picked.length); i++) choose(i + 1, [...picked, valid[i]]);
+    }
+    choose(0, []);
+    return best;
+  }
+
+  function fixedTrainingDays(days, count) {
+    const selected = spreadDays(days, count);
+    for (const day of [1, 3, 5, 0, 2, 4, 6]) {
+      if (selected.length === count) break;
+      if (!selected.includes(day)) selected.push(day);
+    }
+    return selected.sort((a, b) => a - b);
+  }
+
+  function updateDayChoices(selector, frequencyId, hintId) {
+    const count = Number($(frequencyId).value);
+    const chosen = chosenExperienceDays(selector);
+    if (chosen.length > count) {
+      const retained = new Set(spreadDays(chosen, count));
+      document.querySelectorAll(selector + ' input').forEach(input => { input.checked = retained.has(Number(input.value)); });
+    }
+    const full = chosenExperienceDays(selector).length >= count;
+    document.querySelectorAll(selector + ' input').forEach(input => { input.disabled = !input.checked && full; });
+    $(hintId).textContent = txt('Alege exact ' + count + ' zile pentru cele ' + count + ' sesiuni.', 'Choose exactly ' + count + ' days for your ' + count + ' workouts.');
   }
 
   function continueSetup() {
@@ -153,8 +193,8 @@
     if ($('safetyAnswer').value !== 'no') { $('setupBack').click(); continueSetup(); return false; }
     const frequency = Number($('sessionsPerWeek').value);
     const days = chosenExperienceDays('#dayChoices');
-    if (![2, 3, 4].includes(frequency) || days.length < frequency) {
-      $('scheduleError').textContent = txt('Alege cel puțin ' + frequency + ' zile disponibile.', 'Choose at least ' + frequency + ' available days.');
+    if (![2, 3, 4].includes(frequency) || days.length !== frequency) {
+      $('scheduleError').textContent = txt('Alege exact ' + frequency + ' zile disponibile.', 'Choose exactly ' + frequency + ' available days.');
       return false;
     }
     const runStatus = $('runStatus').value;
@@ -192,21 +232,9 @@
   function availableTrainingDays() {
     const p = state.profile;
     if (!p) return [1, 3, 5];
-    const days = [...new Set(Array.isArray(p.trainingDays) ? p.trainingDays : [1, 3, 5])].sort((a, b) => a - b);
+    const days = Array.isArray(p.trainingDays) ? p.trainingDays : [1, 3, 5];
     const count = Math.max(2, Math.min(4, Number(p.sessionsPerWeek) || Math.min(3, days.length)));
-    if (days.length <= count) return days;
-    let best = days.slice(0, count), bestScore = Infinity;
-    function choose(start, picked) {
-      if (picked.length === count) {
-        const gaps = picked.map((day, i) => ((picked[(i + 1) % picked.length] - day + 7) % 7) || 7);
-        const score = gaps.reduce((sum, gap) => sum + Math.pow(gap - 7 / count, 2), 0);
-        if (score < bestScore) { bestScore = score; best = [...picked]; }
-        return;
-      }
-      for (let i = start; i <= days.length - (count - picked.length); i++) choose(i + 1, [...picked, days[i]]);
-    }
-    choose(0, []);
-    return best;
+    return fixedTrainingDays(days, count);
   }
   recommendedDays = availableTrainingDays;
 
@@ -309,26 +337,11 @@
 
   function renderWeeklyView() {
     const target = $('weeklyView');
-    const start = localDay(new Date());
-    const rows = [];
-    let planned = 0;
-    for (let i = 0; i < 7; i++) {
-      const d = new Date(start);
-      d.setDate(start.getDate() + i);
-      const key = dateKey(d);
-      const log = [...state.history].reverse().find(s => s.date === key);
-      const scheduled = availableTrainingDays().includes(d.getDay());
-      const unavailable = isUnavailable(d);
-      if (scheduled && !unavailable) planned++;
-      const status = unavailable ? txt('Indisponibilă', 'Unavailable')
-        : log ? (log.status === 'done' ? txt('Completă', 'Complete') : txt('Parțială', 'Partial'))
-        : scheduled ? txt('Programată', 'Scheduled') : txt('Liber', 'Free');
-      rows.push('<div class="week-day ' + (log?.status === 'done' ? 'is-done' : unavailable ? 'is-off' : scheduled ? 'is-planned' : '') + '"><span>' + weekdayName(d.getDay(), true) + '</span><strong>' + dateLabel(d, { day: 'numeric' }) + '</strong><small>' + status + '</small></div>');
-    }
-    const doneThisWeek = state.history.filter(s => s.status === 'done' && s.completedAt
-      && new Date(s.completedAt) >= start && new Date(s.completedAt) < new Date(start.getTime() + 7 * 86400000)).length;
-    $('weekNote').textContent = txt(doneThisWeek + ' / ' + planned + ' sesiuni planificate în următoarele 7 zile.', doneThisWeek + ' / ' + planned + ' workouts scheduled over the next 7 days.');
-    target.innerHTML = '<div class="week-days">' + rows.join('') + '</div>';
+    const dates = experiencePlanDates(5);
+    $('weekNote').textContent = txt('Următoarele 5 antrenamente planificate.', 'Your next 5 scheduled workouts.');
+    target.innerHTML = '<div class="week-days" role="list">' + dates.map(d =>
+      '<div class="week-day is-planned" role="listitem" aria-label="' + txt('Antrenament pe ', 'Workout on ') + dateLabel(d, { day: 'numeric', month: 'long', year: 'numeric' }) + '"><span>' + weekdayName(d.getDay(), true) + '</span><strong>' + dateLabel(d, { day: 'numeric' }) + '</strong><small>' + dateLabel(d, { month: 'short' }) + '</small></div>'
+    ).join('') + '</div>';
   }
 
   function renderDashboard() {
@@ -388,18 +401,6 @@
     }).join('');
   }
 
-  const palettes = ['standard', 'energetic'];
-  function applyPalette(palette, persist = true) {
-    if (!palettes.includes(palette)) return false;
-    if (persist && !storageSet('scirun.palette', palette)) return false;
-    document.documentElement.dataset.palette = palette;
-    document.querySelectorAll('[data-palette-choice]').forEach(button => {
-      button.setAttribute('aria-pressed', String(button.dataset.paletteChoice === palette));
-    });
-    applyTheme(document.documentElement.dataset.theme || 'dark', false);
-    return true;
-  }
-
   function applyHighContrast(enabled, persist = true) {
     if (persist && !storageSet('scirun.highContrast', String(enabled))) return false;
     highContrastEnabled = enabled;
@@ -410,20 +411,13 @@
 
   function renderSettings() {
     if (!state.profile) return;
-    applyPalette(document.documentElement.dataset.palette || 'standard', false);
     renderPreferenceToggle('contrastToggle', highContrastEnabled, txt('Contrast ridicat', 'High contrast'));
     $('languageSummary').textContent = txt('Română', 'English');
     const frequency = Number(state.profile.sessionsPerWeek) || 3;
     $('conceptProgramSummary').textContent = txt(frequency + ' sesiuni pe săptămână. Schimbările viitoare păstrează istoricul.', frequency + ' workouts per week. Future changes keep your history.');
-    const chosenDays = new Set((state.profile.trainingDays || []).map(Number));
-    document.querySelectorAll('#conceptWeekdays [data-concept-day]').forEach(chip => {
-      const day = Number(chip.dataset.conceptDay);
-      chip.textContent = weekdayName(day, true).slice(0, 1).toLocaleUpperCase(lang === 'ro' ? 'ro-RO' : 'en-GB');
-      chip.classList.toggle('is-selected', chosenDays.has(day));
-      chip.setAttribute('aria-label', weekdayName(day, false));
-    });
     $('settingFrequency').value = String(state.profile.sessionsPerWeek || 3);
     document.querySelectorAll('#scheduleDays input').forEach(c => c.checked = (state.profile.trainingDays || []).includes(Number(c.value)));
+    updateDayChoices('#scheduleDays', 'settingFrequency', 'scheduleDayHint');
     renderPreferenceToggle('soundPreference', soundEnabled, txt('Semnale sonore', 'Sound cues'));
     const vibrationPreference = $('vibrationPreference');
     if (vibrationPreference) {
@@ -456,7 +450,7 @@
     }
     state.blackoutDates = Array.isArray(state.blackoutDates) ? state.blackoutDates : [];
     state.profile.sessionsPerWeek = Math.max(2, Math.min(4, Number(state.profile.sessionsPerWeek) || Math.min(3, state.profile.trainingDays?.length || 3)));
-    if (!Array.isArray(state.profile.trainingDays) || state.profile.trainingDays.length < state.profile.sessionsPerWeek) state.profile.trainingDays = [1, 3, 5];
+    state.profile.trainingDays = fixedTrainingDays(state.profile.trainingDays, state.profile.sessionsPerWeek);
     renderDashboard();
     renderHistory();
     renderSettings();
@@ -468,8 +462,8 @@
     const frequency = Number($('settingFrequency').value);
     const days = chosenExperienceDays('#scheduleDays');
     const msg = $('scheduleSaveMessage');
-    if (![2, 3, 4].includes(frequency) || days.length < frequency) {
-      msg.textContent = txt('Alege cel puțin ' + frequency + ' zile disponibile.', 'Choose at least ' + frequency + ' available days.');
+    if (![2, 3, 4].includes(frequency) || days.length !== frequency) {
+      msg.textContent = txt('Alege exact ' + frequency + ' zile disponibile.', 'Choose exactly ' + frequency + ' available days.');
       msg.classList.add('form-error');
       return;
     }
@@ -866,7 +860,10 @@
     $('restoreSetupPreImport').onclick = restorePreImportBackup;
     $('setupContinue').onclick = continueSetup;
     $('setupBack').onclick = () => { $('setupStepTwo').classList.add('hidden'); $('setupStepOne').classList.remove('hidden'); experienceStrings(); };
-    $('setupFrequency')?.addEventListener('change', experienceStrings);
+    $('sessionsPerWeek').addEventListener('change', () => updateDayChoices('#dayChoices', 'sessionsPerWeek', 'setupDayHint'));
+    $('settingFrequency').addEventListener('change', () => updateDayChoices('#scheduleDays', 'settingFrequency', 'scheduleDayHint'));
+    document.querySelectorAll('#dayChoices input').forEach(input => input.addEventListener('change', () => updateDayChoices('#dayChoices', 'sessionsPerWeek', 'setupDayHint')));
+    document.querySelectorAll('#scheduleDays input').forEach(input => input.addEventListener('change', () => updateDayChoices('#scheduleDays', 'settingFrequency', 'scheduleDayHint')));
     $('saveSchedule').onclick = saveScheduleSettings;
     $('addUnavailable').onclick = addUnavailableRange;
     $('clearUnavailable').onclick = () => { const previous = state.blackoutDates, previousNext = state.nextSessionDate; state.blackoutDates = []; state.nextSessionDate = dateKey(experienceNextDate()); if (!saveState()) { state.blackoutDates = previous; state.nextSessionDate = previousNext; return; } renderAll(); };
@@ -880,9 +877,6 @@
     $('contrastToggle').onclick = () => {
       if (applyHighContrast(!highContrastEnabled)) preferenceTapFeedback();
     };
-    document.querySelectorAll('[data-palette-choice]').forEach(button => button.addEventListener('click', () => {
-      if (applyPalette(button.dataset.paletteChoice)) preferenceTapFeedback();
-    }));
     const vibrationPreference = $('vibrationPreference');
     if (vibrationPreference) vibrationPreference.onclick = () => {
       const next = !vibrationEnabled;
@@ -928,15 +922,13 @@
     if (state.profile) {
       if (state.profile.safetyAnswer !== 'no') state.profile.safetyAnswer = '';
       if (!state.profile.sessionsPerWeek) state.profile.sessionsPerWeek = Math.min(3, state.profile.trainingDays?.length || 3);
-      if (!Array.isArray(state.profile.trainingDays) || state.profile.trainingDays.length < state.profile.sessionsPerWeek) state.profile.trainingDays = [1, 3, 5];
+      state.profile.trainingDays = fixedTrainingDays(state.profile.trainingDays, state.profile.sessionsPerWeek);
       if (state.profile.runSpeed == null) state.profile.runSpeed = null;
       if (state.profile.walkSpeed == null) state.profile.walkSpeed = null;
       if (typeof state.profile.firstSessionFeedbackDone !== 'boolean') state.profile.firstSessionFeedbackDone = false;
       saveState();
     }
-    const savedPalette = storageGet('scirun.palette');
-    applyPalette(palettes.includes(savedPalette) ? savedPalette : 'standard', false);
-    if (savedPalette && !palettes.includes(savedPalette)) storageSet('scirun.palette', 'standard');
+    document.documentElement.dataset.palette = 'standard';
     const savedTheme = storageGet('scirun.theme');
     applyTheme(savedTheme || 'dark', !savedTheme);
     setupExperienceForm(state.profile);

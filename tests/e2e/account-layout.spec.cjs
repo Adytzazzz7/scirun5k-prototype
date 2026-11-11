@@ -1,9 +1,46 @@
 const { test, expect } = require('@playwright/test');
 const { createProfile } = require('./helpers.cjs');
 
+test('Program opens on Account and lists only the next five workout dates', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.clock.setFixedTime(new Date('2026-11-03T09:00:00Z'));
+  await createProfile(page);
+  await page.locator('#nav-account').click();
+  const program = page.locator('#account .concept-program-card');
+  await expect(program).toHaveAttribute('open', '');
+  await expect(program.locator('#weeklyView .week-day')).toHaveCount(5);
+  await expect(program.locator('#weeklyView .week-day.is-planned')).toHaveCount(5);
+  await expect(program.locator('#conceptWeekdays')).toHaveCount(0);
+  await expect(program.locator('#weeklyView')).not.toContainText('Liber');
+  const dates = await program.locator('#weeklyView .week-day').allTextContents();
+  expect(new Set(dates).size).toBe(5);
+  await program.locator('summary').click();
+  await expect(program).not.toHaveAttribute('open', '');
+  await page.locator('#nav-dashboard').click();
+  await page.locator('#nav-account').click();
+  await expect(program).toHaveAttribute('open', '');
+});
+
+test('Visuals keeps Aurora Standard without a palette chooser or data loss', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await createProfile(page);
+  const historyBefore = await page.evaluate(() => localStorage.getItem('scirun.state'));
+  await page.evaluate(() => localStorage.setItem('scirun.palette', 'energetic'));
+  await page.reload();
+  await page.locator('#nav-settings').click();
+  await expect(page.locator('#paletteHeading, [data-palette-choice]')).toHaveCount(0);
+  await expect(page.locator('html')).toHaveAttribute('data-palette', 'standard');
+  expect(await page.evaluate(() => localStorage.getItem('scirun.palette'))).toBe('energetic');
+  expect(await page.evaluate(() => localStorage.getItem('scirun.state'))).toBe(historyBefore);
+});
+
 test('mobile navigation separates activity, visuals and account controls', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await createProfile(page);
+  await expect(page.locator('.topbar .brand')).toHaveAttribute('aria-label', 'SciRun 5K');
+  await expect(page.locator('.topbar .brand-edition')).toHaveText('5K');
+  await expect(page.locator('.topbar .concept-header-caption')).toHaveCount(0);
+  await expect(page.locator('.topbar')).not.toContainText('Programul tău');
   for (const selector of ['#dashboard .concept-goal-detail summary', '#dashboard .concept-distance-info summary', '#dashboard .workout-preview summary']) {
     const target = await page.locator(selector).boundingBox();
     if (!target || target.height < 44 || target.width < 44) throw new Error(selector + ' has a small touch target: ' + JSON.stringify(target));
@@ -31,6 +68,7 @@ test('mobile navigation separates activity, visuals and account controls', async
   await page.locator('#nav-settings').click();
   await expect(page.locator('.palette-settings-card')).toBeVisible();
   await expect(page.locator('.palette-settings-card h2')).toContainText('Visuals');
+  await expect(page.locator('#paletteHeading, [data-palette-choice]')).toHaveCount(0);
   const themeBox = await page.locator('#themeToggle').boundingBox();
   const contrastBox = await page.locator('#contrastToggle').boundingBox();
   if (!themeBox || !contrastBox || Math.abs(themeBox.y - contrastBox.y) > 3) throw new Error('Visual toggles are not side by side');
@@ -42,9 +80,8 @@ test('mobile navigation separates activity, visuals and account controls', async
   await page.locator('#lang-en').click();
   await expect(page.locator('#nav-account')).toContainText('Account');
   await page.locator('#nav-account').click();
-  await page.locator('#account .concept-program-summary').click();
   await expect(page.locator('#account #weeklyView')).toBeVisible();
-  for (const id of ['settingFrequency', 'unavailableStart', 'editProfile', 'exportData', 'importBackup', 'resetApp']) {
+  for (const id of ['settingFrequency', 'unavailableStart', 'editProfile', 'exportData', 'importBackup', 'resetApp', 'googleBackupStatus', 'googleConnect', 'googleSave', 'googleRefresh', 'googleDisconnect', 'googleBackupList', 'googleBackupError']) {
     expect(await page.locator('#account #' + id).count()).toBe(1);
   }
   expect(await page.locator('#weeklyView').evaluate(element => element.closest('details.card').querySelector('.concept-program-title').textContent)).toBe('Schedule');
@@ -55,7 +92,6 @@ test('account schedule and unavailable dates still save without touching history
   await createProfile(page);
   const historyBefore = await page.evaluate(() => JSON.parse(localStorage.getItem('scirun.state')).history);
   await page.locator('#nav-account').click();
-  await page.locator('#account .concept-program-summary').click();
   await page.locator('#settingFrequency').selectOption('2');
   await page.locator('#saveSchedule').click();
   const frequency = await page.evaluate(() => JSON.parse(localStorage.getItem('scirun.state')).profile.sessionsPerWeek);
@@ -132,19 +168,18 @@ test('history distinguishes earlier years while the distance chart uses saved se
   expect(await page.evaluate(() => JSON.stringify(JSON.parse(localStorage.getItem('scirun.state')).history))).toBe(original);
 });
 
-test('concept surfaces and selected navigation follow palette, theme and contrast', async ({ page }) => {
+test('concept surfaces and selected navigation follow theme and contrast', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await createProfile(page);
   await expect(page.locator('#dashboard .home-stats .stat').first()).toHaveCSS('background-color', 'rgb(18, 48, 55)');
   await page.locator('#nav-settings').click();
-  await page.locator('[data-palette-choice="energetic"]').click();
   await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(6, 25, 29)');
-  await expect(page.locator('#nav-settings')).toHaveCSS('background-color', 'rgb(255, 177, 120)');
+  await expect(page.locator('#nav-settings')).toHaveCSS('background-color', 'rgb(86, 220, 196)');
   await expect(page.locator('#settings .palette-settings-card')).toHaveCSS('background-color', 'rgb(18, 48, 55)');
   await page.locator('#contrastToggle').click();
   await expect(page.locator('#settings .palette-settings-card')).toHaveCSS('background-color', 'rgb(18, 48, 55)');
   await page.locator('#themeToggle').click();
   await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(241, 250, 249)');
-  await expect(page.locator('#nav-settings')).toHaveCSS('background-color', 'rgb(168, 85, 36)');
+  await expect(page.locator('#nav-settings')).toHaveCSS('background-color', 'rgb(23, 111, 108)');
   await expect(page.locator('#settings .palette-settings-card')).toHaveCSS('background-color', 'rgb(255, 255, 255)');
 });

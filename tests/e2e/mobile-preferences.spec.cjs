@@ -49,9 +49,8 @@ test('Aurora settings keep visual controls compact and light goal text readable'
   await createProfile(page);
   await page.locator('#nav-settings').click();
   const visual = await page.locator('.visual-choice').first().boundingBox();
-  const palette = await page.locator('.palette-option').first().boundingBox();
   expect(visual.height).toBeLessThanOrEqual(82);
-  expect(palette.height).toBeLessThanOrEqual(62);
+  await expect(page.locator('.palette-option')).toHaveCount(0);
   await expect(page.locator('.setting-row #vibrationHelp')).toHaveCount(1);
   await expect(page.locator('#toast')).toHaveClass(/hidden/);
   await page.screenshot({ path: 'test-results/premium-settings-dark.png', fullPage: true, animations: 'disabled' });

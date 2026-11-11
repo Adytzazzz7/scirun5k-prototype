@@ -1,4 +1,4 @@
-const CACHE_NAME = 'scirun5k-v0-49';
+const CACHE_NAME = 'scirun5k-v0-50';
 const ASSETS = [
   './',
   './index.html',
@@ -12,6 +12,8 @@ const ASSETS = [
   './workout-view.js',
   './state-backup.js',
   './experience.js',
+  './google-backup-config.js',
+  './google-backup.js',
   './experience.css',
   './theme-graphite.css',
   './palette-options.css',

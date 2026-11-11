@@ -1,11 +1,14 @@
-import { Capacitor } from '@capacitor/core';
+import { Capacitor, registerPlugin } from '@capacitor/core';
 import { Directory, Encoding, Filesystem } from '@capacitor/filesystem';
 import { Haptics } from '@capacitor/haptics';
 import { Share } from '@capacitor/share';
 
 if (Capacitor.isNativePlatform()) {
+  const googleBackup = registerPlugin('GoogleBackup');
   window.SciRunNative = {
     isNative: true,
+    platform: Capacitor.getPlatform(),
+    googleBackup,
     async vibrate(pattern) {
       const steps = Array.isArray(pattern) ? pattern : [pattern];
       for (let index = 0; index < steps.length; index++) {
