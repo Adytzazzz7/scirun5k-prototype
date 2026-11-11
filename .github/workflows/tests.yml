@@ -59,4 +59,4 @@ jobs:
         run: npm run android:sync
       - name: Compile Android Java
         working-directory: android
-        run: ./gradlew :app:compileDebugJavaWithJavac --no-daemon
+        run: bash ./gradlew :app:compileDebugJavaWithJavac --no-daemon
